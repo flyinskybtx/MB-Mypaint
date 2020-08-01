@@ -8,11 +8,13 @@ from ray.rllib.models import ModelCatalog
 from ray.tune import register_env
 from tqdm import tqdm
 
-from Data.data_process import load_stroke_png, preprocess_stroke_png
+from Data.data_process import load_stroke_png, preprocess_stroke_png, extract_skeleton_trace, \
+    get_supervised_wps_from_track
 from Env.core_config import *
 # Settings
 from Env.direct_env import DirectCnnEnv
 from Model.cnn_model import CnnModel, LayerConfig
+from Model.supervised_cnn_model import SupervisedCnnModel
 
 image_size = IMAGE_SIZE
 roi_grid_size = ROI_GRID_SIZE
@@ -26,6 +28,9 @@ print(f'Shape of origin image is {ori_img.shape}')
 
 preprocessed_img = preprocess_stroke_png(ori_img, image_size=image_size)
 print(f'Shape of preprocessed image is {preprocessed_img.shape}')
+
+reference_path = extract_skeleton_trace(preprocessed_img, roi_grid_size, discrete=True)
+supervised_path = get_supervised_wps_from_track(reference_path, num_keypoints)
 
 env_config = {
     'image_size': image_size,
@@ -50,13 +55,15 @@ model_config = {
             LayerConfig(fc=4096, activation='relu', dropout=0.5),
             LayerConfig(fc=2048, activation='relu', dropout=0.5),
             LayerConfig(fc=1024, activation='relu', dropout=0.5),
-        ]
+        ],
+        'supervised_action': supervised_path,
     },
+
 }
 
 if __name__ == '__main__':
     model_name = ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
-    ModelCatalog.register_custom_model(model_name, CnnModel)
+    ModelCatalog.register_custom_model(model_name, SupervisedCnnModel)
     model_config['custom_model'] = model_name
 
     ray.shutdown(True)
@@ -71,19 +78,27 @@ if __name__ == '__main__':
         'model': model_config,
     }
 
-    register_env('DirectCnnEnv-v0', lambda env_config: DirectCnnEnv(env_config))
+    register_env('SupervisedDirectEnv-v0', lambda env_config: DirectCnnEnv(env_config))
 
-    a2c_trainer = a3c.A2CTrainer(config=config, env='DirectCnnEnv-v0')
+    a2c_trainer = a3c.A2CTrainer(config=config, env='SupervisedDirectEnv-v0')
     a2c_trainer.import_model('../Model/checkpoints/supervised_model.h5')
+
+    policy = a2c_trainer.get_policy()
+    cur_model = policy.model.base_model
+    cur_model.summary()
 
     for i in tqdm(range(100)):
         result = a2c_trainer.train()
         print(f"\t Episode Reward: "
               f"{result['episode_reward_max']:.4f}  |  "
               f"{result['episode_reward_mean']:.4f}  |  "
-              f"{result['episode_reward_min']:.4f}")
+              f"{result['episode_reward_min']:.4f}  |  " 
+              )
+
+        policy = a2c_trainer.get_policy()
+        cur_model = policy.model.base_model
 
         if i % 10 == 0:
             checkpoint = a2c_trainer.save()
             print("checkpoint saved at", checkpoint)
-            # rollout.rollout(a2c_trainer, env_name='DirectCnnEnv-v0', num_steps=1, no_render=False)
+            # rollout.rollout(a2c_trainer, env_name='SupervisedDirectEnv-v0', num_steps=1, no_render=False)

@@ -1,0 +1,6 @@
+IMAGE_SIZE = 64 * 12
+ROI_GRID_SIZE = 16 * 2
+PIXELS_PER_GRID = 3  # Each roi contains 3*3 roi grids
+Z_GRID_SIZE = 1 / 10
+NUM_KEYPOINTS = 6
+IMAGE_NAME = 11

@@ -5,62 +5,70 @@ import numpy as np
 import scipy
 from scipy import ndimage
 
-from Data.data_process import load_stroke_png, preprocess_stroke_png, extract_skeleton_trace
+from Data.data_process import load_stroke_png, preprocess_stroke_png, extract_skeleton_trace, cut_roi
 from utils.custom_rewards import cos_sim_reward
 from utils.mypaint_agent import MypaintAgent
 
 
-class DirectCnnEnv(gym.Env):
+class WindowedCnnEnv(gym.Env):
     def __init__(self, env_config: dict):
         self.config = env_config
         self.image_size = self.config['image_size']
         self.roi_grid_size = self.config['roi_grid_size']
-        self.pixels_per_grid = self.config['pixels_per_grid']
         self.brush_name = self.config['brush_name']
-        self.num_keypoints = self.config['num_keypoints']
         self.target_image = self.config['target_image']
         self.z_grid_size = self.config['z_grid_size']
 
         # Spaces
-        num_grids = int(self.image_size / self.roi_grid_size)
-        self.num_pixels = self.pixels_per_grid * num_grids
         self.observation_space = gym.spaces.Box(low=0,
                                                 high=1,
-                                                shape=(self.num_pixels,
-                                                       self.num_pixels,
-                                                       1),
+                                                shape=(self.roi_grid_size,
+                                                       self.roi_grid_size,
+                                                       3),
                                                 dtype=np.float)
-        self.action_space = gym.spaces.MultiDiscrete([num_grids, num_grids, int(1 / self.z_grid_size) + 1] *
-                                                     self.num_keypoints)
-
+        self.action_space = gym.spaces.MultiDiscrete([3, 3, 3])  # 0 for left/down, 1 for stay, 2 for right/up
         self.agent = MypaintAgent(env_config)
 
     def step(self, action: list):
-        self.action = action
-        wps = np.array(action, dtype=np.float).reshape(self.num_keypoints, 3)
-        wps *= np.array([
-            self.roi_grid_size / self.image_size,
-            self.roi_grid_size / self.image_size,
-            self.z_grid_size
-        ])
-        self.agent.paint(wps[0, 0], wps[0, 1], 0)  # Draw first point without z
-        for wp in wps:
-            x, y, z = wp
-            self.agent.paint(x, y, z)
+        action = np.array(action) - np.array([1, 1, 1])
+        self.cur_pos += action * np.array([self.roi_grid_size / self.image_size,
+                                           self.roi_grid_size / self.image_size,
+                                           self.z_grid_size])
 
-        self.result_img = self.agent.get_img(
-            (self.image_size, self.image_size))
-        # Calculate reward
-        reward = cos_sim_reward(self.result_img, self.target_image)
+        # prev
+        prev_img = self.agent.get_img((self.image_size, self.image_size))
+        # current
+        self.agent.paint(self.cur_pos[0], self.cur_pos[1], self.cur_pos[2])  # Draw first point without z
+        cur_img = self.agent.get_img((self.image_size, self.image_size))
 
-        return None, reward, True, {}  # obs, reward, done, info
+        # todo: instant reward
+
+        # observation
+        cur = cut_roi(cur_img, self.cur_pos, self.roi_grid_size)
+        prev = cut_roi(prev_img, self.cur_pos, self.roi_grid_size)
+        tar = cut_roi(self.target_image, self.cur_pos, self.roi_grid_size)
+        obs = np.stack(cur, prev, tar)
+
+        if self.cur_pos[-1] == 0:
+            done = True
+            reward = cos_sim_reward(cur_img, self.target_image)
+        else:
+            done = False
+            reward = 0
+
+        return obs, reward, done, {}  # obs, reward, done, info
 
     def reset(self):
+        # todo: select start point
+        start_point = self.start_point
+
+        prev_img = np.zeros((self.roi_grid_size, self.roi_grid_size))
+        cur_img = np.zeros((self.roi_grid_size, self.roi_grid_size))
+        tar_img = cut_roi(self.target_image, start_point, self.roi_grid_size)
+        obs = np.stack([cur_img, prev_img, tar_img])
+
         self.action = None
         self.agent.reset()
-
-        obs = cv2.resize(self.target_image, (self.num_pixels, self.num_pixels))
-        obs = np.expand_dims(obs, axis=-1)
         return obs
 
     def render(self, **kwargs):

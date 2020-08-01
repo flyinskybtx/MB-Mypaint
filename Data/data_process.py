@@ -70,7 +70,13 @@ def find_low_resolution_endpoints(img, roi_grid_size):
     return endpoints
 
 
-def extract_skeleton_trace(img, roi_grid_size):
+def extract_skeleton_trace(img, roi_grid_size, discrete=False, display=False):
+    """
+    从图像中提取笔顺骨架，形成 N*2 个点，点间距由roi_grid_size决定
+    :param img:
+    :param roi_grid_size:
+    :return:
+    """
     skel = skeletonize(img)
     skel = skel.astype(np.float32)
 
@@ -111,12 +117,18 @@ def extract_skeleton_trace(img, roi_grid_size):
                                 kernel,
                                 mode='constant',
                                 cval=0.0)
+    if display:
+        plt.imshow(np.stack([ep_frame, img, np.zeros(img.shape)], axis=-1))
+        plt.xlabel('X')
+        plt.ylabel('Y')
+        plt.show()
 
-    plt.imshow(np.stack([ep_frame, img, np.zeros(img.shape)], axis=-1))
-    plt.xlabel('X')
-    plt.ylabel('Y')
-
-    return path
+    if not discrete:
+        return path
+    else:
+        path = path / np.array([roi_grid_size, roi_grid_size])
+        path = path.astype(np.int)
+        return path
 
 
 def read_pot(author):
@@ -331,6 +343,29 @@ def trace_to_dxux(trace):
     samples = (np.array(dx), np.array(x_w[1:]))
     return samples
 
+
+def get_supervised_wps_from_track(path, num_points):
+    """
+    从path中等间距提取num_points个点，作为监督点，包括起始点和终止点
+    :param path:
+    :param num_points:
+    :return:
+    """
+    stride = int(np.ceil(path.shape[0] / (num_points - 1)))
+    supervised_wps = path[::stride]
+    supervised_wps = np.concatenate([supervised_wps, path[-1:]], axis=0)
+    supervised_wps = np.concatenate([supervised_wps, np.zeros((supervised_wps.shape[0], 1))], axis=1)
+    return supervised_wps
+
+
+def cut_roi(target_image, position, roi_size):
+    img = np.pad(target_image, (roi_size/2, roi_size/2), 'constant')
+    position += np.array(roi_size/2, roi_size/2)
+    roi = img[
+          position[0]-roi_size/2:position[0]+roi_size/2,
+          position[1]-roi_size/2:position[1]+roi_size/2
+    ]
+    return roi
 
 if __name__ == '__main__':
     agent = MypaintAgent({'brush_name': 'custom/slow_ink'})

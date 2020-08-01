@@ -6,7 +6,6 @@ import gym
 import numpy as np
 import tensorflow as tf
 from ray.rllib.models import ModelCatalog
-from ray.rllib.models.tf.tf_action_dist import Categorical, MultiCategorical
 from ray.rllib.models.tf.tf_modelv2 import TFModelV2
 from tensorflow import keras
 
@@ -83,14 +82,6 @@ class CnnModel(TFModelV2):
     def import_from_h5(self, import_file):
         # Override this to define custom weight loading behavior from h5 files.
         self.base_model.load_weights(import_file)
-
-
-class SupervisedCnnModel(CnnModel):
-    def custom_loss(self, policy_loss, loss_inputs):
-        logits, _ = self.forward({'obs': obs}, [], None)
-
-        # Compute the IL loss
-        action_dist = MultiCategorical(logits, self.base_model, self.action_space.nvec)
 
 
 if __name__ == '__main__':
