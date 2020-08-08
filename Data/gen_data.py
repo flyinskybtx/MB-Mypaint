@@ -1,12 +1,13 @@
 import glob
-from pathlib import Path
 import random
+from pathlib import Path
 
 import cv2
-import numpy as np
-from Data.load_HWDB import translate_stroke, centralize_char, interpolate_stroke
-from utils.mypaint_agent import MypaintAgent
 import matplotlib.pyplot as plt
+import numpy as np
+
+from Data.load_HWDB import interpolate_stroke
+from utils.mypaint_agent import MypaintAgent
 
 HWDB_DIR = Path(__file__).parent / 'pot'
 IMAGE_SIZE = 192
@@ -51,6 +52,7 @@ def gen_samples(stroke, agent, image_size=IMAGE_SIZE, margin=ROI_SIZE):
 
     return samples
 
+
 def gen_cnp_samples(stroke, agent, image_size=IMAGE_SIZE, margin=ROI_SIZE):
     # Initialize
     agent.reset()
@@ -76,7 +78,7 @@ def gen_cnp_samples(stroke, agent, image_size=IMAGE_SIZE, margin=ROI_SIZE):
         img = agent.get_img(tar_shape=(image_size, image_size))
         delta = img - prev_img
         if np.sum(delta) > 0:
-            ret,thresh = cv2.threshold(delta.astype(np.uint8), 0, 1, cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+            ret, thresh = cv2.threshold(delta.astype(np.uint8), 0, 1, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
             img, contour, hier = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
             ellipse = cv2.fitEllipse(contour[0])
             center_y, center_x = int(ellipse[0][0]), int(ellipse[0][1])
@@ -85,10 +87,9 @@ def gen_cnp_samples(stroke, agent, image_size=IMAGE_SIZE, margin=ROI_SIZE):
         else:
             center_x, center_y, axis_x, axis_y, rot = x, y, 0, 0, 0
 
-        samples.append((x-center_x, y-center_y, ))
+        samples.append((x - center_x, y - center_y,))
 
-
-    # Discard empty
+        # Discard empty
         if np.sum(img) > 0 or np.sum(post) > 0:
             # update
             samples.append(((x - x0) / margin,

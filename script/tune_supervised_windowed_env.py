@@ -8,10 +8,11 @@ from ray.rllib.models import ModelCatalog
 from ray.tune import register_env
 from tqdm import tqdm
 
+from Env.core_config import *
 # Settings
-from Env.core_config import experimental_config
 from Env.windowed_env import WindowedCnnEnv
-from Model.cnn_model import CnnModel, LayerConfig
+from Model.cnn_model import LayerConfig
+from Model.windowd_cnn_model import WindowedCnnModel
 
 if __name__ == '__main__':
     random.seed(0)
@@ -20,7 +21,7 @@ if __name__ == '__main__':
     print('Start Ray')
 
     model_name = ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
-    ModelCatalog.register_custom_model(model_name, CnnModel)
+    ModelCatalog.register_custom_model(model_name, WindowedCnnModel)
     register_env('WindowedCnnEnv-v0', lambda env_config: WindowedCnnEnv(env_config))
 
     config = {
@@ -55,9 +56,12 @@ if __name__ == '__main__':
                 'offline_dataset': '../Data/offline/windowed'
             },
         },
+        # ----------------------------------------------
+
     }
 
     a2c_trainer = a3c.A2CTrainer(config=config, env='WindowedCnnEnv-v0')
+    a2c_trainer.import_model('../Model/checkpoints/supervised_windowed_model.h5')
 
     for i in tqdm(range(1000)):
         result = a2c_trainer.train()
@@ -69,5 +73,5 @@ if __name__ == '__main__':
         if i % 10 == 0:
             checkpoint = a2c_trainer.save()
             print("checkpoint saved at", checkpoint)
-        if i % 20 == 0:
+        if i % 50 == 0:
             rollout.rollout(a2c_trainer, env_name='WindowedCnnEnv-v0', num_steps=50, num_episodes=1, no_render=False)

@@ -86,15 +86,24 @@ def extract_skeleton_trace(img, roi_grid_size, discrete=False, display=False):
     rr, cc = np.where(output == 11)
 
     endpoints = [(x, y) for x, y in zip(rr, cc)]
-    low_resolution_endpoints = find_low_resolution_endpoints(
-        img, roi_grid_size)
+
+    rgs = roi_grid_size
+    while rgs >= 16:
+        low_resolution_endpoints = find_low_resolution_endpoints(img, rgs)
+        if 2 <= len(low_resolution_endpoints) <= 3:
+            break
+        elif 0 <= len(low_resolution_endpoints) <= 1:
+            low_resolution_endpoints = endpoints
+            break
+        else:
+            rgs /= 2
 
     used_endpoints = []
     for lre in low_resolution_endpoints:
         used_endpoints.append(
             sorted(endpoints,
                    key=lambda x: (x[0] - lre[0]) ** 2 + (x[1] - lre[1]) ** 2)[0])
-    print(f'Used endpoints are: {used_endpoints}')
+    # print(f'Used endpoints are: {used_endpoints}')
 
     finder = AStarFinder(diagonal_movement=DiagonalMovement.always)
     path = []
@@ -107,17 +116,18 @@ def extract_skeleton_trace(img, roi_grid_size, discrete=False, display=False):
     path = path[0::roi_grid_size + 1]
     path = np.array(path)
 
-    rr, cc = np.split(path, 2, axis=-1)
-
-    ep_frame = np.zeros(img.shape)
-    ep_frame[rr, cc] = 1
-
-    kernel = np.ones((roi_grid_size, roi_grid_size))
-    ep_frame = ndimage.convolve(ep_frame,
-                                kernel,
-                                mode='constant',
-                                cval=0.0)
     if display:
+        rr, cc = np.split(path, 2, axis=-1)
+
+        ep_frame = np.zeros(img.shape)
+        ep_frame[rr, cc] = 1
+
+        kernel = np.ones((roi_grid_size, roi_grid_size))
+        ep_frame = ndimage.convolve(ep_frame,
+                                    kernel,
+                                    mode='constant',
+                                    cval=0.0)
+
         plt.imshow(np.stack([ep_frame, img, np.zeros(img.shape)], axis=-1))
         plt.xlabel('X')
         plt.ylabel('Y')
@@ -353,19 +363,33 @@ def get_supervised_wps_from_track(path, num_points):
     """
     stride = int(np.ceil(path.shape[0] / (num_points - 1)))
     supervised_wps = path[::stride]
-    supervised_wps = np.concatenate([supervised_wps, path[-1:]], axis=0)
+    while supervised_wps.shape[0] < num_points:  # use last point to complete the path
+        supervised_wps = np.concatenate([supervised_wps, path[-1:]], axis=0)
+
     supervised_wps = np.concatenate([supervised_wps, np.zeros((supervised_wps.shape[0], 1))], axis=1)
     return supervised_wps
 
 
 def cut_roi(target_image, position, roi_size):
-    img = np.pad(target_image, (roi_size/2, roi_size/2), 'constant')
-    position += np.array(roi_size/2, roi_size/2)
+    cur_pos = np.array([position[0], position[1]], dtype=np.int)
+    img = np.pad(target_image, (int(roi_size / 2), int(roi_size / 2)), 'constant')
+    cur_pos += np.array([roi_size / 2, roi_size / 2], dtype=np.int)
     roi = img[
-          position[0]-roi_size/2:position[0]+roi_size/2,
-          position[1]-roi_size/2:position[1]+roi_size/2
-    ]
+          int(cur_pos[0] - roi_size / 2): int(cur_pos[0] + roi_size / 2),
+          int(cur_pos[1] - roi_size / 2): int(cur_pos[1] + roi_size / 2)
+          ]
     return roi
+
+
+def refpath_to_actions(refpath, roi_grid_size, action_shape):
+    delta = refpath[1:] - refpath[:-1]
+    actions = np.round(delta / (0.5 * roi_grid_size))
+    actions += action_shape // 2
+    z = np.random.randint(low=0, high=5, size=(actions.shape[0], 1))
+    actions = np.concatenate([actions, z], axis=-1)
+
+    return actions
+
 
 if __name__ == '__main__':
     agent = MypaintAgent({'brush_name': 'custom/slow_ink'})

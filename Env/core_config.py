@@ -1,6 +1,31 @@
-IMAGE_SIZE = 64 * 12
-ROI_GRID_SIZE = 16 * 2
-PIXELS_PER_GRID = 3  # Each roi contains 3*3 roi grids
-Z_GRID_SIZE = 1 / 10
-NUM_KEYPOINTS = 6
-IMAGE_NAME = 11
+import numpy as np
+from collections import namedtuple
+
+ExperimentalConfig = namedtuple(
+    'ExperimentalConfig',
+    [
+        'image_size',
+        'window_size',
+        'stride_size',
+        'stride_amplify',
+        'z_size',
+        'num_keypoints',
+        'max_step',
+        'brush_name',
+        'action_shape',
+        'image_nums',
+    ]
+)
+
+experimental_config = ExperimentalConfig(
+    image_size=64*12,
+    window_size=32*2,
+    stride_size=16*2,
+    stride_amplify=3,
+    z_size=1/10,
+    num_keypoints=6,
+    max_step=30,
+    brush_name='custom/slow_ink',
+    action_shape=5,
+    image_nums=np.arange(48),
+)

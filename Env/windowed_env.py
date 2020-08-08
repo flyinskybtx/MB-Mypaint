@@ -1,11 +1,13 @@
-import cv2
 import gym
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy
 from scipy import ndimage
+from skimage import draw
 
-from Data.data_process import load_stroke_png, preprocess_stroke_png, extract_skeleton_trace, cut_roi
+from Data.data_process import load_stroke_png, preprocess_stroke_png, extract_skeleton_trace, cut_roi, \
+    refpath_to_actions
+from Env.core_config import experimental_config
 from utils.custom_rewards import cos_sim_reward
 from utils.mypaint_agent import MypaintAgent
 
@@ -14,26 +16,29 @@ class WindowedCnnEnv(gym.Env):
     def __init__(self, env_config: dict):
         self.config = env_config
         self.image_size = self.config['image_size']
-        self.roi_grid_size = self.config['roi_grid_size']
+        self.window_size = self.config['window_size']
         self.brush_name = self.config['brush_name']
-        self.target_image = self.config['target_image']
-        self.z_grid_size = self.config['z_grid_size']
+        self.image_nums = self.config['image_nums']
+        self.z_size = self.config['z_size']
+
+        self.all_ref_paths = {}
 
         # Spaces
         self.observation_space = gym.spaces.Box(low=0,
                                                 high=1,
-                                                shape=(self.roi_grid_size,
-                                                       self.roi_grid_size,
+                                                shape=(self.window_size,
+                                                       self.window_size,
                                                        3),
                                                 dtype=np.float)
-        self.action_space = gym.spaces.MultiDiscrete([3, 3, 3])  # 0 for left/down, 1 for stay, 2 for right/up
+        self.action_space = gym.spaces.MultiDiscrete([5, 5, 5])  # 0 for left/down, 1 for stay, 2 for right/up
         self.agent = MypaintAgent(env_config)
 
     def step(self, action: list):
-        action = np.array(action) - np.array([1, 1, 1])
-        self.cur_pos += action * np.array([self.roi_grid_size / self.image_size,
-                                           self.roi_grid_size / self.image_size,
-                                           self.z_grid_size])
+        action = np.array(action) - np.array([2, 2, 2])
+        self.cur_pos += action * np.array([0.5 * self.window_size / self.image_size,
+                                           0.5 * self.window_size / self.image_size,
+                                           self.z_size])
+        self.cur_pos = np.clip(self.cur_pos, 0, 1)
 
         # prev
         prev_img = self.agent.get_img((self.image_size, self.image_size))
@@ -44,10 +49,13 @@ class WindowedCnnEnv(gym.Env):
         # todo: instant reward
 
         # observation
-        cur = cut_roi(cur_img, self.cur_pos, self.roi_grid_size)
-        prev = cut_roi(prev_img, self.cur_pos, self.roi_grid_size)
-        tar = cut_roi(self.target_image, self.cur_pos, self.roi_grid_size)
-        obs = np.stack(cur, prev, tar)
+        position = (self.cur_pos * np.array([self.image_size - 1, self.image_size - 1, 1]))
+        self.history.append(position)
+
+        cur = cut_roi(cur_img, position, self.window_size)
+        prev = cut_roi(prev_img, position, self.window_size)
+        tar = cut_roi(self.target_image, position, self.window_size)
+        obs = np.stack([cur, prev, tar], axis=-1)
 
         if self.cur_pos[-1] == 0:
             done = True
@@ -56,60 +64,78 @@ class WindowedCnnEnv(gym.Env):
             done = False
             reward = 0
 
-        return obs, reward, done, {}  # obs, reward, done, info
+        return obs, reward, done, {'history': self.history}  # obs, reward, done, info
 
     def reset(self):
-        # todo: select start point
-        start_point = self.start_point
+        image_num = np.random.choice(self.image_nums)
+        # print(f'Image No.{image_num}\n')
+        ori_img = load_stroke_png(image_num)
+        self.target_image = preprocess_stroke_png(ori_img, image_size=self.image_size)
 
-        prev_img = np.zeros((self.roi_grid_size, self.roi_grid_size))
-        cur_img = np.zeros((self.roi_grid_size, self.roi_grid_size))
-        tar_img = cut_roi(self.target_image, start_point, self.roi_grid_size)
-        obs = np.stack([cur_img, prev_img, tar_img])
+        if image_num in self.all_ref_paths:
+            self.cur_ref_path = self.all_ref_paths[image_num]
+        else:
+            self.cur_ref_path = extract_skeleton_trace(self.target_image, self.window_size)
+            self.all_ref_paths[image_num] = self.cur_ref_path
+        start_point = self.cur_ref_path[0]
 
-        self.action = None
+        self.cur_pos = np.array([start_point[0] / self.image_size, start_point[1] / self.image_size, 0.0])
+
+        prev_img = np.zeros((self.window_size, self.window_size))
+        cur_img = np.zeros((self.window_size, self.window_size))
+
+        position = (self.cur_pos * np.array([self.image_size - 1, self.image_size - 1, 1]))
+        tar_img = cut_roi(self.target_image, position, self.window_size)
+        obs = np.stack([cur_img, prev_img, tar_img], axis=-1)
+
         self.agent.reset()
+        self.history = [position]
         return obs
 
     def render(self, **kwargs):
-        wps_frame = np.zeros((self.image_size, self.image_size))
-        wps = np.array(self.action, dtype=np.float).reshape(self.num_keypoints, 3)
-        wps *= np.array([
-            self.roi_grid_size / self.image_size,
-            self.roi_grid_size / self.image_size, int(1 / self.z_grid_size) + 1
-        ])
-        for wp in wps:
-            wps_frame[int(wp[0]), int(wp[1])] = wp[2]
-        kernel = np.ones((self.roi_grid_size, self.roi_grid_size))
-        wps_frame = scipy.ndimage.convolve(wps_frame, kernel, mode='constant', cval=0.0)
-        plt.imshow(np.stack([wps_frame, self.target_image, self.result_img], axis=-1))
+        result_img = self.agent.get_img((self.image_size, self.image_size))
+        tar_img = self.target_image
+
+        # paint Waypoints
+        wps_img = np.zeros((self.image_size, self.image_size))
+        for wp in self.history:
+            wps_img[int(wp[0]), int(wp[1])] = wp[2]
+        wps_img = scipy.ndimage.convolve(wps_img, np.ones((9, 9)), mode='constant', cval=0.0)
+
+        for wp0, wp1 in zip(self.history, self.history[1:]):
+            rr, cc, val = draw.line_aa(int(wp0[0]), int(wp0[1]), int(wp1[0]), int(wp1[1]))
+            wps_img[rr, cc] = val
+
+        plt.imshow(np.stack([wps_img, result_img, tar_img], axis=-1))
         plt.show()
 
 
 if __name__ == '__main__':
     # Settings
-    image_size = 192 * 4
-    roi_grid_size = 16 * 2  # Each roi contains 3*3 roi grids
-    pixels_per_grid = 3
-    z_grid_size = 1 / 10
-    num_keypoints = 6
-
-    ori_img = load_stroke_png(11)
-    print(f'Shape of origin image is {ori_img.shape}')
-
-    preprocessed_img = preprocess_stroke_png(ori_img, image_size=image_size)
-    print(f'Shape of preprocessed image is {preprocessed_img.shape}')
-
-    reference_path = extract_skeleton_trace(preprocessed_img, roi_grid_size)
 
     env_config = {
-        'image_size': image_size,
-        'roi_grid_size': roi_grid_size,
-        'pixels_per_grid': pixels_per_grid,
-        'z_grid_size': z_grid_size,
-        'brush_name': 'custom/slow_ink',
-        'num_keypoints': num_keypoints,
-        'target_image': preprocessed_img,
+        'image_size': experimental_config.image_size,
+        'window_size': experimental_config.window_size,
+        'z_size': experimental_config.z_size,
+        'brush_name': experimental_config.brush_name,
+        'image_nums': experimental_config.image_nums,
+        'action_shape': experimental_config.action_shape,
     }
 
-    direct_cnn_env = DirectCnnEnv(env_config)
+    windowed_env = WindowedCnnEnv(env_config)
+
+    fake_actions = np.random.choice(np.arange(5), size=(30, 3))
+    fake_actions[:5, -1] = 3
+
+    for i in range(10):
+        obs = windowed_env.reset()
+        fake_path = windowed_env.cur_ref_path
+        fake_actions = refpath_to_actions(fake_path, experimental_config.window_size, experimental_config.action_shape)
+        for action in fake_actions:
+            obs, reward, done, info = windowed_env.step(action)
+            if done:
+                break
+
+        # print(np.stack(windowed_env.history, axis=0))
+
+        windowed_env.render()
