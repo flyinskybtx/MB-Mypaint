@@ -1,7 +1,7 @@
 import tensorflow.keras as keras
 
 from Data.data_generator import DataGenerator
-from Model.renderer import build_generator_model
+from Data.Deprecated.renderer import build_generator_model
 
 if __name__ == '__main__':
     model = build_generator_model()

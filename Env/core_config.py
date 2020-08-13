@@ -14,6 +14,7 @@ ExperimentalConfig = namedtuple(
         'brush_name',
         'action_shape',
         'image_nums',
+        'bottleneck'
     ]
 )
 
@@ -28,4 +29,5 @@ experimental_config = ExperimentalConfig(
     brush_name='custom/slow_ink',
     action_shape=5,
     image_nums=np.arange(48),
+    bottleneck=7,
 )

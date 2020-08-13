@@ -17,8 +17,8 @@ def build_cnp(x_shape, y_shape, encoder_hiddens, decoder_hiddens):
         y = keras.layers.Dense(size, name=f'encoder_{i}', activation='relu')(y)  # MLP
     y = keras.layers.Dense(encoder_hiddens[-1], name=f'dense_{len(encoder_hiddens)}', activation='linear')(y)
 
-    # --- aggregator ---
-    y = keras.layers.Lambda(lambda x: tf.reduce_mean(x, axis=1, keep_dims=False),
+    # --- cnp_aggregator ---
+    y = keras.layers.Lambda(lambda x: tf.reduce_mean(x, axis=1, keepdims=False),
                             name='avg_aggregator')(y)
 
     # --- Decoder ---

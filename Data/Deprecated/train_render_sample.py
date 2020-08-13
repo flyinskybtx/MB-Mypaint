@@ -1,5 +1,5 @@
 from Data.data_generator import DataGenerator
-from Model.renderer import build_generator_model
+from Data.Deprecated.renderer import build_generator_model
 
 if __name__ == '__main__':
     model = build_generator_model()
@@ -12,4 +12,4 @@ if __name__ == '__main__':
     y = train_sample[-1]
     img, disp = train_sample[0]
 
-    model.fit(x=[img, disp], y=y, workers=6, epochs=1000)
+    model.fit()

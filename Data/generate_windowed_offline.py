@@ -19,21 +19,25 @@ if __name__ == '__main__':
     env = WindowedCnnEnv(env_config)
 
     batch_builder = SampleBatchBuilder()
-    writer = JsonWriter('./offline/windowed')
+    writer = JsonWriter('./offline/windowed',
+                        max_file_size=1024 * 1024 * 1024,
+                        compress_columns=['obs', 'new_obs'])
 
     prep = get_preprocessor(env.observation_space)(env.observation_space)
     print("The preprocessor is", prep)
 
-    for eps_id in tqdm(range(1000)):
+    eps_id = 0
+    pbar = tqdm(total=10)
+    while eps_id < 10:
         obs = env.reset()
-        prev_action = np.zeros_like(env.action_space.sample())
-        prev_reward = 0
         done = False
         t = 0
 
         reference_path = env.cur_ref_path
-        actions = refpath_to_actions(reference_path, experimental_config.window_size,
+        actions = refpath_to_actions(reference_path,
+                                     roi_grid_size=experimental_config.window_size,
                                      action_shape=experimental_config.action_shape)
+        assert len(actions) > 0
 
         for action in actions:
             if done:
@@ -42,18 +46,16 @@ if __name__ == '__main__':
             batch_builder.add_values(
                 t=t,
                 eps_id=eps_id,
-                agent_index=0,
                 obs=prep.transform(obs),
+                new_obs=prep.transform(new_obs),
                 actions=action,
-                action_prob=1.0,  # put the true action probability here
-                rewards=rew,
-                prev_actions=prev_action,
-                prev_rewards=prev_reward,
                 dones=done,
                 infos={},
-                new_obs=prep.transform(new_obs))
+            )
             obs = new_obs
-            prev_action = action
-            prev_reward = rew
             t += 1
-        writer.write(batch_builder.build_and_reset())
+
+        if batch_builder.count >= 5:
+            writer.write(batch_builder.build_and_reset())
+            eps_id += 1
+            pbar.update(1)

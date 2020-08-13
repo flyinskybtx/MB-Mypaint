@@ -28,7 +28,7 @@ class WindowedCnnEnv(gym.Env):
                                                 high=1,
                                                 shape=(self.window_size,
                                                        self.window_size,
-                                                       3),
+                                                       4),
                                                 dtype=np.float)
         self.action_space = gym.spaces.MultiDiscrete([5, 5, 5])  # 0 for left/down, 1 for stay, 2 for right/up
         self.agent = MypaintAgent(env_config)
@@ -48,14 +48,15 @@ class WindowedCnnEnv(gym.Env):
 
         # todo: instant reward
 
-        # observation
+        # observation: Cur/Prev/Tar/Z
         position = (self.cur_pos * np.array([self.image_size - 1, self.image_size - 1, 1]))
         self.history.append(position)
 
         cur = cut_roi(cur_img, position, self.window_size)
         prev = cut_roi(prev_img, position, self.window_size)
         tar = cut_roi(self.target_image, position, self.window_size)
-        obs = np.stack([cur, prev, tar], axis=-1)
+        z = self.cur_pos[-1] * np.ones_like(tar)
+        obs = np.stack([cur, prev, tar, z], axis=-1)
 
         if self.cur_pos[-1] == 0:
             done = True
@@ -81,12 +82,13 @@ class WindowedCnnEnv(gym.Env):
 
         self.cur_pos = np.array([start_point[0] / self.image_size, start_point[1] / self.image_size, 0.0])
 
-        prev_img = np.zeros((self.window_size, self.window_size))
-        cur_img = np.zeros((self.window_size, self.window_size))
+        prev = np.zeros((self.window_size, self.window_size))
+        cur = np.zeros((self.window_size, self.window_size))
 
         position = (self.cur_pos * np.array([self.image_size - 1, self.image_size - 1, 1]))
-        tar_img = cut_roi(self.target_image, position, self.window_size)
-        obs = np.stack([cur_img, prev_img, tar_img], axis=-1)
+        tar = cut_roi(self.target_image, position, self.window_size)
+        z = self.cur_pos[-1] * np.ones_like(tar)
+        obs = np.stack([cur, prev, tar, z], axis=-1)
 
         self.agent.reset()
         self.history = [position]
