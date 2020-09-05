@@ -3,7 +3,7 @@ from ray.rllib.models.preprocessors import get_preprocessor
 from ray.rllib.offline.json_writer import JsonWriter
 from tqdm import tqdm
 
-from Data.data_process import refpath_to_actions
+from Data.data_process_lib import refpath_to_actions
 from Env.core_config import *
 from Env.windowed_env import WindowedCnnEnv
 
@@ -11,10 +11,12 @@ if __name__ == '__main__':
     env_config = {
         'image_size': experimental_config.image_size,
         'window_size': experimental_config.window_size,
+        'xy_size':experimental_config.xy_size,
         'z_size': experimental_config.z_size,
         'brush_name': experimental_config.brush_name,
         'image_nums': experimental_config.image_nums,
         'action_shape': experimental_config.action_shape,
+        'obs_size': experimental_config.obs_size,
     }
     env = WindowedCnnEnv(env_config)
 
@@ -27,15 +29,15 @@ if __name__ == '__main__':
     print("The preprocessor is", prep)
 
     eps_id = 0
-    pbar = tqdm(total=10)
-    while eps_id < 10:
+    pbar = tqdm(total=1000)
+    while eps_id < pbar.total:
         obs = env.reset()
         done = False
         t = 0
 
         reference_path = env.cur_ref_path
         actions = refpath_to_actions(reference_path,
-                                     roi_grid_size=experimental_config.window_size,
+                                     step_size=experimental_config.obs_size,
                                      action_shape=experimental_config.action_shape)
         assert len(actions) > 0
 

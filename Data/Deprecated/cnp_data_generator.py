@@ -5,18 +5,17 @@ import numpy as np
 
 import tensorflow.keras as keras
 
-from Data.gen_data import gen_samples
-from Data.load_HWDB import translate_stroke , centralize_char, interpolate_stroke
+from Data.Deprecated.gen_data import gen_samples
+from Data.Deprecated.load_HWDB import interpolate_stroke
 from utils.mypaint_agent import MypaintAgent
 
 HWDB_DIR = Path(__file__).parent / 'pot'
 
 
-class DataGenerator(keras.utils.Sequence):
+class CnpDataGenerator(keras.utils.Sequence):
 
-    def __init__(self, authors, batch_size=32, image_size=192, roi_size=16):
+    def __init__(self, authors, image_size=192, roi_size=16):
         self.authors = authors
-        self.batch_size = batch_size
         self.image_size = image_size
         self.roi_size = roi_size
         self.cur_author = None
@@ -26,16 +25,12 @@ class DataGenerator(keras.utils.Sequence):
         self.update_samples()
 
     def __len__(self):
-        num_samples = np.sum([len(s) - 1 for s in self.strokes])
-        return int(np.floor(num_samples / self.batch_size))
+        num_batches = len(self.strokes)
+        return num_batches
 
     def __getitem__(self, index):
-        all_samples = []
-        while len(all_samples) < self.batch_size:
-            stroke = random.choice(self.strokes)
-            samples = gen_samples(stroke, self.agent)
-            all_samples += samples
-        all_samples = all_samples[:self.batch_size]
+        stroke = random.choice(self.strokes)
+        samples = gen_samples(stroke, self.agent)
 
         X_disp = np.array([s[:3] for s in all_samples])
         X_img = np.array([s[3] for s in all_samples])
@@ -57,5 +52,5 @@ class DataGenerator(keras.utils.Sequence):
 
 
 if __name__ == '__main__':
-    data_generator = DataGenerator(['1001-c', '1002-c'])
+    data_generator = CnpDataGenerator(['1001-c', '1002-c'])
     print(data_generator.__getitem__(1))

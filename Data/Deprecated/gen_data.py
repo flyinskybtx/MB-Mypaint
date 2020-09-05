@@ -6,7 +6,7 @@ import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 
-from Data.load_HWDB import interpolate_stroke
+from Data.Deprecated.load_HWDB import interpolate_stroke
 from utils.mypaint_agent import MypaintAgent
 
 HWDB_DIR = Path(__file__).parent / 'pot'

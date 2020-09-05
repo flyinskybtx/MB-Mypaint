@@ -5,9 +5,9 @@ import numpy as np
 import scipy
 from scipy import ndimage
 
-from Data.data_process import load_stroke_png, preprocess_stroke_png
+from Data.data_process_lib import load_stroke_png, preprocess_stroke_png
 from Env.core_config import experimental_config
-from utils.custom_rewards import cos_sim_reward
+from utils.custom_rewards import img_cosine_reward
 from utils.mypaint_agent import MypaintAgent
 
 
@@ -51,7 +51,7 @@ class DirectCnnEnv(gym.Env):
 
         self.result_img = self.agent.get_img((self.image_size, self.image_size))
         # Calculate reward
-        reward = cos_sim_reward(self.result_img, self.target_image)
+        reward = img_cosine_reward(self.result_img, self.target_image)
 
         # Resize to obs
         obs = cv2.resize(self.result_img, (self.num_pixels, self.num_pixels))

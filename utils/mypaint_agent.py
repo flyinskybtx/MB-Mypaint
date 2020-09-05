@@ -133,6 +133,7 @@ class MypaintAgent:
         self.step = 0
 
     def get_img(self, tar_shape=None):
+        """ Get current image in Mypaint, and resize to target shape """
         # Save temp image
         filename = os.path.join(INTERMEDIATE_IMG_SAVE_DIR, ''.join(random.choices(string.ascii_uppercase +
                                                                                   string.digits, k=12)))

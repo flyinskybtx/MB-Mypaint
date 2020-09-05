@@ -38,6 +38,7 @@ def load_stroke_png(stroke_num):
 
 
 def preprocess_stroke_png(img, image_size, angle=0):
+    """ Reshape, Rotate and Binaries """
     from scipy import ndimage
     img = img.copy()
     img = ndimage.rotate(img, angle, reshape=False)
@@ -49,13 +50,13 @@ def preprocess_stroke_png(img, image_size, angle=0):
     return img
 
 
-def find_low_resolution_endpoints(img, roi_grid_size):
-    skel_img_size = np.int(img.shape[0] // roi_grid_size)
-    skel_img = cv2.resize(img, (skel_img_size, skel_img_size))
-    skel_img[np.where(skel_img > 0.5)] = 1.0
-    skel_img[np.where(skel_img <= 0.5)] = 0
+def find_low_resolution_endpoints(img, new_size, return_skel=False):
+    """ Find endpoints in low resolution image, to help choose better endpoints """
+    old_size = img.shape[0]
+    skel_img = cv2.resize(img, (new_size, new_size))
+    skel_img = np.round(skel_img)
 
-    skel = skeletonize(skel_img, )
+    skel = skeletonize(skel_img)
     skel = skel.astype(np.float32)
 
     kernel = np.float32([[1, 1, 1], [1, 10, 1], [1, 1, 1]])
@@ -64,56 +65,46 @@ def find_low_resolution_endpoints(img, roi_grid_size):
     rr, cc = np.where(output == 11)
 
     endpoints = [(x, y) for x, y in zip(rr, cc)]
-    endpoints = sorted(endpoints, key=lambda x: x[0] + x[1])
-    endpoints = np.array(endpoints) * roi_grid_size
+    endpoints = sorted(endpoints, key=lambda x: x[0]**2 + x[1]**2)  # top-left for 1st point
+    endpoints = (np.array(endpoints) * old_size / new_size).astype(np.int)
 
-    return endpoints
+    if return_skel:
+        return endpoints, skel
+    else:
+        return endpoints
 
 
-def extract_skeleton_trace(img, roi_grid_size, discrete=False, display=False):
+def extract_skeleton_trace(img, step_size, discrete=False, display=False):
     """
-    从图像中提取笔顺骨架，形成 N*2 个点，点间距由roi_grid_size决定
+    从图像中提取笔顺骨架，提取 N 个2维路径点，点间距由step_size决定, 横、纵两方向的移动量小于step_size
     :param img:
-    :param roi_grid_size:
+    :param step_size:
     :return:
     """
-    skel = skeletonize(img)
-    skel = skel.astype(np.float32)
+    endpoints, skel = find_low_resolution_endpoints(img, img.shape[0], return_skel=True)
+    if len(endpoints) > 3:
+        low_size = int(img.shape[0] * 0.8)
+        while low_size > 0.4 * img.shape[0]:
+            low_endpoints = find_low_resolution_endpoints(img, low_size)
+            if 2 <= len(low_endpoints) <= 3:
+                break
+            low_size = int(low_size * 0.8)
 
-    kernel = np.float32([[1, 1, 1], [1, 10, 1], [1, 1, 1]])
+        candidates = []
+        for le in low_endpoints:
+            candidates.append(sorted(endpoints, key=lambda x: np.sum(np.square(x-le)))[0])
 
-    output = ndimage.convolve(skel, kernel, mode='constant', cval=0.0)
-    rr, cc = np.where(output == 11)
-
-    endpoints = [(x, y) for x, y in zip(rr, cc)]
-
-    rgs = roi_grid_size
-    while rgs >= 16:
-        low_resolution_endpoints = find_low_resolution_endpoints(img, rgs)
-        if 2 <= len(low_resolution_endpoints) <= 3:
-            break
-        elif 0 <= len(low_resolution_endpoints) <= 1:
-            low_resolution_endpoints = endpoints
-            break
-        else:
-            rgs /= 2
-
-    used_endpoints = []
-    for lre in low_resolution_endpoints:
-        used_endpoints.append(
-            sorted(endpoints,
-                   key=lambda x: (x[0] - lre[0]) ** 2 + (x[1] - lre[1]) ** 2)[0])
-    # print(f'Used endpoints are: {used_endpoints}')
+        endpoints = candidates
 
     finder = AStarFinder(diagonal_movement=DiagonalMovement.always)
     path = []
 
-    for s, e in zip(used_endpoints, used_endpoints[1:]):
-        path += [s] * (roi_grid_size + 1)
+    for s, e in zip(endpoints, endpoints[1:]):
+        path += [s] * (step_size + 1)
         grid = Grid(matrix=skel.T)
         path += finder.find_path(grid.node(*s), grid.node(*e), grid)[0][1:-1]
-    path += [used_endpoints[-1]] * (roi_grid_size + 1)
-    path = path[0::roi_grid_size + 1]
+    path += [endpoints[-1]] * (step_size + 1)
+    path = path[0::step_size + 1]
     path = np.array(path)
 
     if display:
@@ -122,7 +113,7 @@ def extract_skeleton_trace(img, roi_grid_size, discrete=False, display=False):
         ep_frame = np.zeros(img.shape)
         ep_frame[rr, cc] = 1
 
-        kernel = np.ones((roi_grid_size, roi_grid_size))
+        kernel = np.ones((step_size, step_size))
         ep_frame = ndimage.convolve(ep_frame,
                                     kernel,
                                     mode='constant',
@@ -136,7 +127,7 @@ def extract_skeleton_trace(img, roi_grid_size, discrete=False, display=False):
     if not discrete:
         return path
     else:
-        path = path / np.array([roi_grid_size, roi_grid_size])
+        path = path / np.array([step_size, step_size])
         path = path.astype(np.int)
         return path
 
@@ -166,7 +157,7 @@ def read_pot(author):
 
 
 def translate_stroke(content):
-    """ Unpack a stroke encoding to a list of (X,Y) points"""
+    """ Unpack a stroke encoding to a list of (X,Y) waypoints"""
 
     points = [content[p:p + 4] for p in range(0, len(content), 4)]
     # Switch x and y
@@ -256,7 +247,7 @@ def stroke_to_trace(stroke: np.ndarray, agent, img_size: int, roi_size: int, dis
     agent.paint(x0 / img_size, y0 / img_size, 0)
     frame = np.zeros((img_size, img_size, 3))
 
-    # Iterate over stroke points
+    # Iterate over stroke waypoints
     for wp in stroke:
         x1, y1 = wp[:2]
         z1 = np.clip(
@@ -381,9 +372,9 @@ def cut_roi(target_image, position, roi_size):
     return roi
 
 
-def refpath_to_actions(refpath, roi_grid_size, action_shape):
+def refpath_to_actions(refpath, step_size, action_shape):
     delta = refpath[1:] - refpath[:-1]
-    actions = np.round(delta / (0.5 * roi_grid_size))
+    actions = np.round(delta / (0.5 * step_size))
     actions += action_shape // 2
     z = np.random.randint(low=0, high=5, size=(actions.shape[0], 1))
     actions = np.concatenate([actions, z], axis=-1)

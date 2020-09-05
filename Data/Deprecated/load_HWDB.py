@@ -16,7 +16,7 @@ DST_SIZE = 192
 
 
 def translate_stroke(content):
-    """ Unpack a stroke encoding to a list of (X,Y) points """
+    """ Unpack a stroke encoding to a list of (X,Y) waypoints """
 
     points = [content[p:p + 4] for p in range(0, len(content), 4)]
     # Switch x and y

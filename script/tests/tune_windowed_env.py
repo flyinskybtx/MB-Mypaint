@@ -25,18 +25,11 @@ if __name__ == '__main__':
 
     config = {
         "train_batch_size": 200,
-        'num_workers': 0,
+        'num_workers': 2,
         'log_level': 'INFO',
         'framework': 'tf',
         #  -------------------------------------
-        'env_config': {
-            'image_size': experimental_config.image_size,
-            'window_size': experimental_config.window_size,
-            'z_size': experimental_config.z_size,
-            'brush_name': experimental_config.brush_name,
-            'image_nums': experimental_config.image_nums,
-            'action_shape': experimental_config.action_shape,
-        },
+        'env_config': experimental_config._asdict(),
         #  -------------------------------------
         'model': {
             'custom_model': model_name,
@@ -58,7 +51,6 @@ if __name__ == '__main__':
     }
 
     a2c_trainer = a3c.A2CTrainer(config=config, env='WindowedCnnEnv-v0')
-
     for i in tqdm(range(1000)):
         result = a2c_trainer.train()
         print(f"\t Episode Reward: "
@@ -70,4 +62,4 @@ if __name__ == '__main__':
             checkpoint = a2c_trainer.save()
             print("checkpoint saved at", checkpoint)
         if i % 20 == 0:
-            rollout.rollout(a2c_trainer, env_name='WindowedCnnEnv-v0', num_steps=50, num_episodes=1, no_render=False)
+            rollout.rollout(a2c_trainer, env_name='WindowedCnnEnv-v0', num_steps=100, num_episodes=1, no_render=False)

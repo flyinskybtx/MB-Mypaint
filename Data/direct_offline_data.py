@@ -4,7 +4,7 @@ from ray.rllib.offline.json_writer import JsonWriter
 from tqdm import tqdm
 import os
 
-from Data.data_process import extract_skeleton_trace, get_supervised_wps_from_track
+from Data.data_process_lib import extract_skeleton_trace, get_supervised_wps_from_track
 from Env.core_config import experimental_config
 from Env.direct_env import DirectCnnEnv
 

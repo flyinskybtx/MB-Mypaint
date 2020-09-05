@@ -1,5 +1,4 @@
-from json import JSONDecodeError
-
+import gym
 import matplotlib.pyplot as plt
 import numpy as np
 from ray.rllib.models.model import restore_original_dimensions
@@ -12,23 +11,29 @@ from Model.representation_model import build_AE
 
 
 class OfflineDataGenerator(keras.utils.Sequence):
-    def __init__(self, reader, batch_size, obs_space):
-        self.reader = reader
-        self.batch_size = batch_size
-        self.obs_space = obs_space
+    def __init__(self, config: dict):
+        self.reader = JsonReader(config['offline_data'])
+        self.batch_size = config['batch_size']
+        self.obs_space = gym.spaces.Box(low=0, high=1, dtype=np.float,
+                                        shape=(config['obs_size'], config['obs_size'], 4))
+        self.slots = config.setdefault('slots', [])
 
     def __getitem__(self, index):
         raise NotImplementedError
 
-    def get_batch(self):
-        source, action = [], []
-        for i in range(self.batch_size):
-            batch = self.reader.next()
-            source.append(restore_original_dimensions(batch['obs'], self.obs_space))
-            action.append(batch['actions'])
-        source = np.concatenate(source)
-        action = np.concatenate(action)
-        return {'obs': source, 'actions': action}
+    def get_batch(self, batch_size):
+        for i in range(batch_size):
+            # initialize batch
+            data = self.reader.next()
+            if i == 0:
+                batch = {k: [] for k in data.keys()}
+            for k, v in data.items():
+                if k in ['obs', 'new_obs', 'prev_obs']:
+                    batch[k].append(restore_original_dimensions(v, self.obs_space))
+                else:
+                    batch[k].append(v)
+
+        return {k: np.concatenate(v) for k, v in batch.items()}
 
     def __len__(self):
         return 100000
@@ -36,24 +41,26 @@ class OfflineDataGenerator(keras.utils.Sequence):
 
 class AEDataGenerator(OfflineDataGenerator):
     def __getitem__(self, index):
-        batch = self.get_batch()
+        batch = self.get_batch(self.batch_size)
         source = batch['obs']
         target = np.copy(source)[:, :, :, :1]  # Only select first channel for current image
         return source, target
 
 
 class VisualiztionCallback(keras.callbacks.Callback):
-    def __init__(self, data_generator):
+    def __init__(self, data_generator, frequency):
         super().__init__()
         self.generator = data_generator
+        self.frequency = frequency
 
-    def on_epoch_begin(self, epoch, logs=None):
-        if epoch % 5 != 0:
+    def on_epoch_begin(self, epoch, logs=None, totol_count=10):
+        if epoch % self.frequency != 0:
             return
 
         X, Y = self.generator.__getitem__(0)
         Y_ = self.model.predict(X)
 
+        count = 0
         for y_pred, y_true in zip(Y_, Y):
             if np.max(y_true) > 0:
                 frame = np.concatenate([y_pred, y_true], axis=1)  # concat along y axis for view
@@ -61,30 +68,26 @@ class VisualiztionCallback(keras.callbacks.Callback):
                 plt.imshow(frame)
                 plt.show()
                 plt.close(fig)
+                count += 1
+            if count > totol_count:
                 break
 
 
 if __name__ == '__main__':
     model_saved_name = 'autoencoder'
 
-    offline_dataset = '../Data/offline/windowed'
-    reader = JsonReader(offline_dataset)
-
-    env_config = {
-        'image_size': experimental_config.image_size,
+    generator_config = {
         'window_size': experimental_config.window_size,
-        'z_size': experimental_config.z_size,
-        'brush_name': experimental_config.brush_name,
-        'image_nums': experimental_config.image_nums,
-        'action_shape': experimental_config.action_shape,
+        'obs_size': experimental_config.obs_size,
+        'batch_size': 16,
+        'offline_data': '../Data/offline/windowed',
+        'slots': ['obs', 'actions']
     }
 
-    windowed_env = WindowedCnnEnv(env_config)
-
-    data_generator = AEDataGenerator(reader, batch_size=32, obs_space=windowed_env.observation_space)
+    data_generator = AEDataGenerator(generator_config)
 
     config = {
-        'image_shape': (experimental_config.window_size, experimental_config.window_size, 4),
+        'image_shape': (experimental_config.obs_size, experimental_config.obs_size, 4),
         'encoder_layers': [
             ('conv', [32, (2, 2), 1]),
             ('pool', [(2, 2), 2]),
@@ -100,13 +103,14 @@ if __name__ == '__main__':
             ('upsampling', (2, 2)),
             ('deconv', [32, (2, 2), 2]),
             ('upsampling', (2, 2)),
+            ('deconv', [32, (2, 2), 1]),
             ('deconv', [1, (2, 2), 1]),
         ],
         'bottleneck': experimental_config.bottleneck,
     }
 
     auto_encoder, encoder, decoder = build_AE(config)
-    auto_encoder.compile(optimizer='adam', loss='mse')
+    auto_encoder.compile(optimizer=keras.optimizers.Adam(5e-4), loss='mse')
 
     # Load previous trained model
     auto_encoder.load_weights(f'../Model/checkpoints/{model_saved_name}.h5')
@@ -118,8 +122,8 @@ if __name__ == '__main__':
             keras.callbacks.ModelCheckpoint(
                 f'../Model/checkpoints/{model_saved_name}.h5', save_best_only=True),
             keras.callbacks.EarlyStopping(
-                monitor='val_loss', patience=1, mode='auto', restore_best_weights=True),
-            VisualiztionCallback(data_generator),
+                monitor='val_loss', patience=5, mode='auto', restore_best_weights=True),
+            VisualiztionCallback(data_generator, frequency=3),
         ])
 
     encoder.save(f'../Model/checkpoints/{encoder.name}')
