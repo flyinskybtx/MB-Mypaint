@@ -12,6 +12,9 @@ from Model.cnn_model import CnnModel, LayerConfig
 from Model.supervised_cnn_model import MaskedMultiCategorical
 
 
+
+
+
 class WindowedCnnModel(CnnModel):
     def custom_loss(self, policy_loss, loss_inputs):
         reader = JsonReader(self.model_config['custom_model_config']['offline_dataset'])

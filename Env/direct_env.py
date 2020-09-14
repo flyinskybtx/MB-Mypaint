@@ -6,9 +6,9 @@ import scipy
 from scipy import ndimage
 
 from Data.data_process_lib import load_stroke_png, preprocess_stroke_png
-from Env.core_config import experimental_config
+from Data.Deprecated.core_config import experimental_config
 from utils.custom_rewards import img_cosine_reward
-from utils.mypaint_agent import MypaintAgent
+from utils.mypaint_agent import MypaintPainter
 
 
 class DirectCnnEnv(gym.Env):
@@ -34,7 +34,7 @@ class DirectCnnEnv(gym.Env):
         self.action_space = gym.spaces.MultiDiscrete([num_strides, num_strides, int(1 / self.z_size) + 1] *
                                                      self.num_keypoints)
 
-        self.agent = MypaintAgent(env_config)
+        self.agent = MypaintPainter(env_config)
 
     def step(self, action: list):
         self.action = action
@@ -50,14 +50,14 @@ class DirectCnnEnv(gym.Env):
             self.agent.paint(x, y, z)
 
         self.result_img = self.agent.get_img((self.image_size, self.image_size))
-        # Calculate reward
+        # Calculate accu_reward
         reward = img_cosine_reward(self.result_img, self.target_image)
 
         # Resize to obs
         obs = cv2.resize(self.result_img, (self.num_pixels, self.num_pixels))
         obs = np.expand_dims(obs, axis=-1)
 
-        return obs, reward, True, {}  # obs, reward, done, info
+        return obs, reward, True, {}  # obs, accu_reward, done, info
 
     def reset(self):
         image_num = np.random.choice(self.image_nums)

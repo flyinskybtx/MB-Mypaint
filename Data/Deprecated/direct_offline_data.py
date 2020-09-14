@@ -5,7 +5,7 @@ from tqdm import tqdm
 import os
 
 from Data.data_process_lib import extract_skeleton_trace, get_supervised_wps_from_track
-from Env.core_config import experimental_config
+from Data.Deprecated.core_config import experimental_config
 from Env.direct_env import DirectCnnEnv
 
 env_config = {
@@ -21,7 +21,7 @@ env_config = {
 if __name__ == '__main__':
     batch_builder = SampleBatchBuilder()
 
-    save_dir = './offline/direct'
+    save_dir = '../offline/direct'
     if not os.path.exists(save_dir):
         os.makedirs(save_dir, exist_ok=True)
     writer = JsonWriter(save_dir)

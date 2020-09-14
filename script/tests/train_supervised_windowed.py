@@ -2,7 +2,7 @@ import tensorflow as tf
 from ray.rllib.offline import JsonReader
 from tensorflow import keras
 
-from Env.core_config import *
+from Data.Deprecated.core_config import *
 from Env.windowed_env import WindowedCnnEnv
 from Model.cnn_model import LayerConfig
 from Model.windowd_cnn_model import WindowedCnnModel
@@ -38,7 +38,7 @@ if __name__ == '__main__':
         'image_size': experimental_config.image_size,
         'obs_size':experimental_config.obs_size,
         'window_size': experimental_config.window_size,
-        'xy_size': experimental_config.image_size,
+        'xy_grid': experimental_config.image_size,
         'z_size': experimental_config.z_size,
         'brush_name': experimental_config.brush_name,
         'image_nums': experimental_config.image_nums,

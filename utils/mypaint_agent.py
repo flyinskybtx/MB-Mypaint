@@ -1,13 +1,15 @@
 import os
+import os.path as osp
 import pathlib
 import random
 import string
+import sys
 import time
 
 import cv2
 import numpy as np
 
-import sys
+from Model import AttrDict
 
 try:
     from lib import mypaintlib, tiledsurface
@@ -22,8 +24,7 @@ except ModuleNotFoundError:
 np.set_printoptions(formatter={'float_kind': lambda x: "%.2f" % x})
 cur_dir = pathlib.Path(__file__)
 
-MY_BRUSH_PATH = os.path.join(cur_dir.parent, 'Brushes')
-BRUSH_PATH = mypaint_brushdir
+BRUSH_DIR = os.path.join(cur_dir.parent, 'Brushes')
 INTERMEDIATE_IMG_SAVE_DIR = os.path.join(cur_dir.parent.parent, 'Data/temp_imgs')
 
 TILE_SIZE = mypaintlib.TILE_SIZE
@@ -40,24 +41,32 @@ DICT_NUM_TILES = {
 }
 
 
-class MypaintAgent:
-    def __init__(self, env_config: dict, num_tiles=None):
+def reconfigure_brush_info(brush_name='custom/slow_ink', factors=np.ones(4)):
+    brush_info = mypaint_brush.BrushInfo()
+    # load base brush info
+    with open(osp.join(BRUSH_DIR, f'{brush_name}.myb'), 'r') as fp:
+        brush_info.from_json(fp.read())
+
+    for i, key in enumerate(['radius_logarithmic', 'slow_tracking_per_dab']):
+        points = brush_info.get_points(key, 'pressure')
+        for j in range(2):
+            points[j + 1][1] = np.round(points[j + 1][1] * factors[i * 2 + j], 2)
+        brush_info.set_points(key, 'pressure', points)
+    return brush_info
+
+
+class MypaintPainter:
+    def __init__(self, env_config: AttrDict, num_tiles=None):
         """
 
         :param env_config:
         """
-        brush_name = env_config.setdefault('brush_name', 'classic/calligraphy')
-        dtime = env_config.setdefault('dtime', 0.05)
-
-        if os.path.exists(os.path.join(MY_BRUSH_PATH, f'{brush_name}.myb')):
-            self.brush_path = os.path.join(MY_BRUSH_PATH, f'{brush_name}.myb')
-        else:
-            self.brush_path = os.path.join(BRUSH_PATH, f'{brush_name}.myb')
-
-        self.dtime = dtime
+        self.brush_name = env_config.brush_name
+        self.dtime = env_config.setdefault('dtime', 0.05)
+        self.brush_factor = env_config.setdefault('brush_factor', np.ones(4, ))
 
         if num_tiles is None:
-            self.num_tiles = DICT_NUM_TILES[brush_name]
+            self.num_tiles = DICT_NUM_TILES[self.brush_name]
         else:
             self.num_tiles = num_tiles
 
@@ -66,13 +75,16 @@ class MypaintAgent:
         self.step = 0
         self.time = 0
 
-        self.helper_brush = self.get_brush(os.path.join(BRUSH_PATH, 'classic/pen.myb'))
+        helper_brush_info = mypaint_brush.BrushInfo()
+        with open(os.path.join(mypaint_brushdir, 'classic/pen.myb'), 'r') as fp:
+            helper_brush_info.from_json(fp.read())
+        self.helper_brush = mypaint_brush.Brush(helper_brush_info)
         self.reset()
 
     @staticmethod
-    def get_brush(brush_path):
-        with open(brush_path) as fp:
-            return mypaint_brush.Brush(mypaint_brush.BrushInfo(fp.read()))
+    def get_brush(brush_name, factor):
+        brush_info = reconfigure_brush_info(brush_name, factor)
+        return mypaint_brush.Brush(brush_info)
 
     def paint(self, x: float, y: float, pressure, x_tilt=0, y_tilt=0, view_zoom=1, view_rotation=0, barrel_rotation=1):
         """ paint a step
@@ -117,7 +129,7 @@ class MypaintAgent:
 
         self.time = 0
 
-        self.brush = self.get_brush(self.brush_path)
+        self.brush = self.get_brush(self.brush_name, self.brush_factor)
         self.surface = tiledsurface.Surface()
 
         # Draw box, add TILESIZE DISPLACEMENT
@@ -132,7 +144,7 @@ class MypaintAgent:
 
         self.step = 0
 
-    def get_img(self, tar_shape=None):
+    def get_img(self, shape=None):
         """ Get current image in Mypaint, and resize to target shape """
         # Save temp image
         filename = os.path.join(INTERMEDIATE_IMG_SAVE_DIR, ''.join(random.choices(string.ascii_uppercase +
@@ -155,18 +167,18 @@ class MypaintAgent:
               ]
         img = img.transpose()
 
-        if tar_shape:
-            img = cv2.resize(img, tar_shape)
+        if shape:
+            img = cv2.resize(img, shape)
             img[np.where(img > 0)] = 1
         os.remove(filename)
 
         return img
 
 
-if __name__ == '__main__':
-    agent = MypaintAgent({'brush_name': 'custom/slow_ink'})
+def test_standard_move(env_config: dict):
+    agent = MypaintPainter(env_config)
     agent.reset()
-    # agent.paint(0, 0, 1)
+    # mypaint_painter.paint(0, 0, 1)
     agent.paint(0.5, 0.5, 0)
     agent.paint(0.5, 0.5, 1)
     agent.paint(0.8, 0.8, 1)
@@ -180,3 +192,10 @@ if __name__ == '__main__':
 
     plt.imshow(result)
     plt.show()
+
+
+if __name__ == '__main__':
+    for i in range(10):
+        env_config = {'brush_name': 'custom/slow_ink',
+                      'brush_factor': np.random.uniform(0.8, 1.2, (4,))}
+        test_standard_move(env_config)

@@ -2,8 +2,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from tensorflow import keras
 
-from Env.core_config import experimental_config
-from Model.representation_model import build_AE
+from Data.Deprecated.core_config import experimental_config
+from Data.Deprecated.representation_model import build_AE
 from script.tests.train_image_autoencoder import OfflineDataGenerator
 
 

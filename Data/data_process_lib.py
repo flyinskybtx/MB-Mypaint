@@ -15,7 +15,8 @@ from scipy import ndimage
 from skimage.draw import line, line_aa
 from skimage.morphology import skeletonize
 
-from utils.mypaint_agent import MypaintAgent
+from Data import DATA_DIR
+from utils.mypaint_agent import MypaintPainter
 
 HWDB_DIR = '/home/baitianxiang/Workspace/MB-Mypaint/Data/pot'
 if not '/home/baitianxiang/Workspace/MB-Mypaint' in sys.path:
@@ -31,7 +32,7 @@ def view_all_png():
 
 
 def load_stroke_png(stroke_num):
-    filename = osp.join('../Data/png', f'{stroke_num}.png')
+    filename = osp.join(DATA_DIR, f'png/{stroke_num}.png')
 
     img = plt.imread(filename)[:, :, 0]
     return img
@@ -65,7 +66,7 @@ def find_low_resolution_endpoints(img, new_size, return_skel=False):
     rr, cc = np.where(output == 11)
 
     endpoints = [(x, y) for x, y in zip(rr, cc)]
-    endpoints = sorted(endpoints, key=lambda x: x[0]**2 + x[1]**2)  # top-left for 1st point
+    endpoints = sorted(endpoints, key=lambda x: x[0] ** 2 + x[1] ** 2)  # top-left for 1st point
     endpoints = (np.array(endpoints) * old_size / new_size).astype(np.int)
 
     if return_skel:
@@ -81,6 +82,7 @@ def extract_skeleton_trace(img, step_size, discrete=False, display=False):
     :param step_size:
     :return:
     """
+    img = np.copy(img)
     endpoints, skel = find_low_resolution_endpoints(img, img.shape[0], return_skel=True)
     if len(endpoints) > 3:
         low_size = int(img.shape[0] * 0.8)
@@ -92,17 +94,47 @@ def extract_skeleton_trace(img, step_size, discrete=False, display=False):
 
         candidates = []
         for le in low_endpoints:
-            candidates.append(sorted(endpoints, key=lambda x: np.sum(np.square(x-le)))[0])
+            candidates.append(sorted(endpoints, key=lambda x: np.sum(np.square(x - le)))[0])
 
         endpoints = candidates
 
     finder = AStarFinder(diagonal_movement=DiagonalMovement.always)
     path = []
 
-    for s, e in zip(endpoints, endpoints[1:]):
+    # ------
+    if isinstance(endpoints, np.ndarray):
+        endpoints = endpoints.tolist()
+    index = 0
+    while len(endpoints) > 1:
+        s = endpoints.pop(index)
         path += [s] * (step_size + 1)
-        grid = Grid(matrix=skel.T)
-        path += finder.find_path(grid.node(*s), grid.node(*e), grid)[0][1:-1]
+
+        _paths = []
+        for e in endpoints:
+            grid = Grid(matrix=skel.T)
+            _paths.append(finder.find_path(grid.node(*s), grid.node(*e), grid)[0][1:-1])
+        distances = np.array([len(p) for p in _paths])
+
+        if np.max(distances) == 0:  # 没有能相连的
+            distances = [(s[0] - e[0]) ** 2 + (s[1] - e[1]) ** 2 for e in endpoints]
+            index = np.argmin(distances)
+            e = endpoints[index]
+            cur_path = [(x, y) for x, y in zip(*line(*s, *e))]
+            path += cur_path
+        else:
+            distances[distances == 0] = 10000
+            index = np.argmin(distances)
+            path += _paths[index]
+
+    # ------
+    # for s, e in zip(endpoints, endpoints[1:]):
+    #     path += [s] * (step_size + 1)
+    #     grid = Grid(matrix=skel.T)
+    #     cur_path = finder.find_path(grid.node(*s), grid.node(*e), grid)[0][1:-1]
+    #     if len(cur_path) == 0:
+    #         cur_path = [(x, y) for x, y in zip(*line(*s, *e))]  # 用直线插补不连续点
+    #     path += cur_path
+
     path += [endpoints[-1]] * (step_size + 1)
     path = path[0::step_size + 1]
     path = np.array(path)
@@ -257,7 +289,7 @@ def stroke_to_trace(stroke: np.ndarray, agent, img_size: int, roi_size: int, dis
 
         # Agent step
         agent.paint(x1 / img_size, y1 / img_size, z1)
-        img1 = agent.get_img(tar_shape=(img_size, img_size))  # Should I cut to roi? img1 = cut_roi(img1, x1, y1,
+        img1 = agent.get_img(shape=(img_size, img_size))  # Should I cut to roi? img1 = cut_roi(img1, x1, y1,
         # roi_size)
 
         ellipse = get_ellipse(img1 - img0)
@@ -372,18 +404,23 @@ def cut_roi(target_image, position, roi_size):
     return roi
 
 
-def refpath_to_actions(refpath, step_size, action_shape):
+def refpath_to_actions(refpath, xy_size, action_shape):
+    """ Reference 2-D path to actions with random Z """
     delta = refpath[1:] - refpath[:-1]
-    actions = np.round(delta / (0.5 * step_size))
+    actions = np.round(delta / (0.5 * xy_size))
     actions += action_shape // 2
     z = np.random.randint(low=0, high=5, size=(actions.shape[0], 1))
+    z[:int(0.5 * len(z))] = np.clip(z[:int(0.5 * len(z))] + 1, 0, action_shape - 1)  # let the first half go down and
+    # the last half
+    # go up
+    z[int(0.5 * len(z)):] = np.clip(z[int(0.5 * len(z)):] - 1, 0, action_shape - 1)
     actions = np.concatenate([actions, z], axis=-1)
 
     return actions
 
 
 if __name__ == '__main__':
-    agent = MypaintAgent({'brush_name': 'custom/slow_ink'})
+    agent = MypaintPainter({'brush_name': 'custom/slow_ink'})
     roi_size = 16 * 4
     image_size = 192 * 4
     cur_author = '1001-c'

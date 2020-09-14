@@ -3,7 +3,7 @@ import tensorflow as tf
 from ray.rllib.offline import JsonReader
 from tensorflow import keras
 
-from Env.core_config import experimental_config
+from Data.Deprecated.core_config import experimental_config
 from Env.direct_env import DirectCnnEnv
 from Model.cnn_model import LayerConfig
 from Model.supervised_cnn_model import SupervisedCnnModel

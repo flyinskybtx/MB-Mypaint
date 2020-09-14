@@ -4,14 +4,14 @@ from ray.rllib.offline.json_writer import JsonWriter
 from tqdm import tqdm
 
 from Data.data_process_lib import refpath_to_actions
-from Env.core_config import *
+from Data.Deprecated.core_config import *
 from Env.windowed_env import WindowedCnnEnv
 
 if __name__ == '__main__':
     env_config = {
         'image_size': experimental_config.image_size,
         'window_size': experimental_config.window_size,
-        'xy_size':experimental_config.xy_size,
+        'xy_grid':experimental_config.xy_grid,
         'z_size': experimental_config.z_size,
         'brush_name': experimental_config.brush_name,
         'image_nums': experimental_config.image_nums,
@@ -21,7 +21,7 @@ if __name__ == '__main__':
     env = WindowedCnnEnv(env_config)
 
     batch_builder = SampleBatchBuilder()
-    writer = JsonWriter('./offline/windowed',
+    writer = JsonWriter('../offline/windowed',
                         max_file_size=1024 * 1024 * 1024,
                         compress_columns=['obs', 'new_obs'])
 
@@ -37,7 +37,7 @@ if __name__ == '__main__':
 
         reference_path = env.cur_ref_path
         actions = refpath_to_actions(reference_path,
-                                     step_size=experimental_config.obs_size,
+                                     xy_size=experimental_config.obs_size,
                                      action_shape=experimental_config.action_shape)
         assert len(actions) > 0
 

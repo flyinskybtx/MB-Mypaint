@@ -1,16 +1,16 @@
 import numpy as np
 from tensorflow import keras
 
-from Env.core_config import experimental_config
+from Data.Deprecated.core_config import experimental_config
 from Model.cnn_model import LayerConfig
-from Model.cnp_model import build_cnp_model, dist_logp, stats, dist_mse
+from Data.Deprecated.old_cnp_model import build_cnp_model, dist_logp, stats, dist_mse
 from script.tests.train_image_autoencoder import OfflineDataGenerator
 
 
 class CNPDataGenerator(OfflineDataGenerator):
     def __init__(self, config):
         super().__init__(config)
-        self.encoder = keras.models.load_model(config['encoder_model'])
+        self.encoder = keras.models.load_model(config['latent_encoder'])
         self.encoder.trainable = False
         self.min_context, self.max_context = config['num_context']
         self.num_context = np.random.randint(self.min_context, self.max_context)
@@ -48,7 +48,7 @@ def test_data_generator():
         'batch_size': 16,
         'offline_data': '../Data/offline/windowed',
         'slots': ['obs', 'actions', 'new_obs'],
-        'encoder_model': '../Model/checkpoints/encoder',
+        'latent_encoder': '../Model/checkpoints/latent_encoder',
         'num_context': [5, 10],
     }
     cnp_data_generator = CNPDataGenerator(generator_config)
@@ -63,7 +63,7 @@ if __name__ == '__main__':
         'batch_size': 16,
         'offline_data': '../Data/offline/windowed',
         'slots': ['obs', 'actions', 'new_obs'],
-        'encoder_model': '../Model/checkpoints/encoder',
+        'latent_encoder': '../Model/checkpoints/latent_encoder',
         'num_context': [5, 10],
     }
     train_data_generator = CNPDataGenerator(generator_config)
@@ -74,8 +74,8 @@ if __name__ == '__main__':
         'state_dims': 7,
         'action_dims': 3,
         'logits_dims': 8,
-        'encoder': {LayerConfig(fc=8, activation='relu')},
-        'decoder': {LayerConfig(fc=8, activation='relu')},
+        'latent_encoder': {LayerConfig(fc=8, activation='relu')},
+        'latent_decoder': {LayerConfig(fc=8, activation='relu')},
     }
 
     cnp_model = build_cnp_model(config)

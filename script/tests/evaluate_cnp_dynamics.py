@@ -4,10 +4,10 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 
 from Data.data_process_lib import refpath_to_actions
-from Env.core_config import experimental_config
+from Data.Deprecated.core_config import experimental_config
 from Env.windowed_env import WindowedCnnEnv
 from Model.cnn_model import LayerConfig
-from Model.cnp_model import build_cnp_model
+from Data.Deprecated.old_cnp_model import build_cnp_model
 from script.tests.train_cnp_dynamics import CNPDataGenerator
 
 if __name__ == '__main__':
@@ -16,8 +16,8 @@ if __name__ == '__main__':
         'state_dims': 7,
         'action_dims': 3,
         'logits_dims': 8,
-        'encoder': {LayerConfig(fc=8, activation='relu')},
-        'decoder': {LayerConfig(fc=8, activation='relu')},
+        'latent_encoder': {LayerConfig(fc=8, activation='relu')},
+        'latent_decoder': {LayerConfig(fc=8, activation='relu')},
     }
     cnp_model = build_cnp_model(config)
     cnp_model.load_weights('../Model/checkpoints/cnp_model.h5')
@@ -41,7 +41,7 @@ if __name__ == '__main__':
         'batch_size': 1,
         'offline_data': '../Data/offline/windowed',
         'slots': ['obs', 'actions', 'new_obs'],
-        'encoder_model': '../Model/checkpoints/encoder',
+        'latent_encoder': '../Model/checkpoints/latent_encoder',
         'num_context': [5, 10],
     }
     train_data_generator = CNPDataGenerator(generator_config)
@@ -49,14 +49,14 @@ if __name__ == '__main__':
     context_x = context['context_x']
     context_y = context['context_y']
 
-    # ---------- Evaluate for N episodes ------------- #
+    # ---------- Evaluate for N num_episodes ------------- #
     for i in tqdm(range(10)):
         # ---------- get ref waypoints ------------ #
         obs = env.reset()  # obs = [cur, prev, tar, z]
         cur_cnp, prev_cnp, tar, z = map(lambda x: np.squeeze(x, axis=-1), np.split(obs, 4, axis=-1))
         reference_path = env.cur_ref_path
         actions = refpath_to_actions(reference_path,
-                                     step_size=experimental_config.window_size,
+                                     xy_size=experimental_config.window_size,
                                      action_shape=experimental_config.action_shape)
         actions[:10, -1] = 4
 

@@ -8,7 +8,7 @@ from ray.rllib.models import ModelCatalog
 from ray.tune import register_env
 from tqdm import tqdm
 
-from Env.core_config import experimental_config
+from Data.Deprecated.core_config import experimental_config
 # Settings
 from Env.direct_env import DirectCnnEnv
 from Model.cnn_model import LayerConfig

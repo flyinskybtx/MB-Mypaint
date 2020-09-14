@@ -2,7 +2,7 @@ import struct
 from random import random
 import numpy as np
 
-from utils.mypaint_agent import MypaintAgent
+from utils.mypaint_agent import MypaintPainter
 
 
 def make_stroke(content):
@@ -40,7 +40,7 @@ def get_stroke():
 
 
 if __name__ == '__main__':
-    agent = MypaintAgent({'brush_name': 'custom/slow_ink'})
+    agent = MypaintPainter({'brush_name': 'custom/slow_ink'})
     stroke = get_stroke()
 
     # Initialize

@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from Data.Deprecated.load_HWDB import interpolate_stroke
-from utils.mypaint_agent import MypaintAgent
+from utils.mypaint_agent import MypaintPainter
 
 HWDB_DIR = Path(__file__).parent / 'pot'
 IMAGE_SIZE = 192
@@ -21,7 +21,7 @@ def gen_samples(stroke, agent, image_size=IMAGE_SIZE, margin=ROI_SIZE):
     x0, y0 = stroke[0]
     z0 = 0
     agent.paint(x0 / image_size, y0 / image_size, z0)
-    prev_img = agent.get_img(tar_shape=(image_size, image_size))
+    prev_img = agent.get_img(shape=(image_size, image_size))
     samples = []
 
     # Random Z
@@ -36,7 +36,7 @@ def gen_samples(stroke, agent, image_size=IMAGE_SIZE, margin=ROI_SIZE):
         x, y = p[:2]
         z = np.clip(z + random.sample([-0.1] * 3 + [0] * 3 + [0.1] * 4, 1)[0], 0, 1)
         agent.paint(x / image_size, y / image_size, z)
-        img = agent.get_img(tar_shape=(image_size, image_size))
+        img = agent.get_img(shape=(image_size, image_size))
         post = cut_roi(img - prev_img, x0, y0, margin=margin)
 
         # Discard empty
@@ -60,7 +60,7 @@ def gen_cnp_samples(stroke, agent, image_size=IMAGE_SIZE, margin=ROI_SIZE):
     x0, y0 = stroke[0]
     z0 = 0
     agent.paint(x0 / image_size, y0 / image_size, z0)
-    prev_img = agent.get_img(tar_shape=(image_size, image_size))
+    prev_img = agent.get_img(shape=(image_size, image_size))
     samples = []
 
     # Random Z
@@ -75,7 +75,7 @@ def gen_cnp_samples(stroke, agent, image_size=IMAGE_SIZE, margin=ROI_SIZE):
         x, y = p[:2]
         z = np.clip(z + random.sample([-0.1] * 3 + [0] * 3 + [0.1] * 4, 1)[0], 0, 1)
         agent.paint(x / image_size, y / image_size, z)
-        img = agent.get_img(tar_shape=(image_size, image_size))
+        img = agent.get_img(shape=(image_size, image_size))
         delta = img - prev_img
         if np.sum(delta) > 0:
             ret, thresh = cv2.threshold(delta.astype(np.uint8), 0, 1, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
@@ -109,7 +109,7 @@ def cut_roi(img, x, y, margin):
 
 
 if __name__ == '__main__':
-    agent = MypaintAgent({'brush_name': 'custom/slow_ink'})
+    agent = MypaintPainter({'brush_name': 'custom/slow_ink'})
 
     for pot_file in sorted(glob.glob(f'{HWDB_DIR}/*.pot'))[1:2]:
         results = translate_pot(pot_file)

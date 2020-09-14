@@ -1,5 +1,3 @@
-from collections import defaultdict
-
 import gym
 import matplotlib.pyplot as plt
 import numpy as np
@@ -9,9 +7,9 @@ from skimage import draw, transform
 
 from Data.data_process_lib import load_stroke_png, preprocess_stroke_png, extract_skeleton_trace, cut_roi, \
     refpath_to_actions
-from Env.core_config import experimental_config
+from Data.Deprecated.core_config import experimental_config
 from utils.custom_rewards import rewards_dict
-from utils.mypaint_agent import MypaintAgent
+from utils.mypaint_agent import MypaintPainter
 
 
 class WindowedCnnEnv(gym.Env):
@@ -21,7 +19,7 @@ class WindowedCnnEnv(gym.Env):
         self.window_size = self.config['window_size']
         self.brush_name = self.config['brush_name']
         self.image_nums = self.config['image_nums']
-        self.xy_size = self.config['xy_size']
+        self.xy_size = self.config['xy_grid']
         self.z_size = self.config['z_size']
         self.obs_size = self.config['obs_size']
         self.rewards = self.config['rewards']
@@ -36,12 +34,12 @@ class WindowedCnnEnv(gym.Env):
                                                        4),
                                                 dtype=np.float)
         self.action_space = gym.spaces.MultiDiscrete([5, 5, 5])  # 0 for left/down, 1 for stay, 2 for right/up
-        self.agent = MypaintAgent(env_config)
+        self.agent = MypaintPainter(env_config)
 
     def step(self, action: list):
         # --- Update states ---
         action = np.array(action) - np.array([2, 2, 2])
-        self.cur_pos += action * np.array([0.5 * self.xy_size / self.image_size,  # 0.5*xy_size is minimum step size
+        self.cur_pos += action * np.array([0.5 * self.xy_size / self.image_size,  # 0.5*xy_grid is minimum step size
                                            0.5 * self.xy_size / self.image_size,
                                            self.z_size])
         self.cur_pos = np.clip(self.cur_pos, 0, 1)
@@ -52,7 +50,7 @@ class WindowedCnnEnv(gym.Env):
         self.agent.paint(self.cur_pos[0], self.cur_pos[1], self.cur_pos[2])  # Draw first point without z
         cur_img = self.agent.get_img((self.image_size, self.image_size))
 
-        # todo: instant reward
+        # todo: instant accu_reward
 
         # --- observation: Cur/Prev/Tar/Z ---
         position = (self.cur_pos * np.array([self.image_size - 1, self.image_size - 1, 1]))
@@ -65,7 +63,7 @@ class WindowedCnnEnv(gym.Env):
         obs = np.stack([cur, prev, tar, z], axis=-1)
         obs = transform.resize(obs, (self.obs_size, self.obs_size, 4))  # Resize to a smaller obs size
 
-        # --- Calculate reward ---
+        # --- Calculate accu_reward ---
         rewards = {}
         if self.cur_pos[-1] == 0:
             done = True
@@ -89,7 +87,7 @@ class WindowedCnnEnv(gym.Env):
         return obs, reward, done, {'history': self.history,
                                    'rewards': rewards, }
         # 'rewards': {k: np.round(v, 2) for k, v in rewards.items()}}  #
-        # obs, reward,
+        # obs, accu_reward,
         # done,
         # info
 
@@ -152,7 +150,7 @@ if __name__ == '__main__':
     #     'image_size': experimental_config.image_size,
     #     'window_size': experimental_config.window_size,
     #     'obs_size': experimental_config.obs_size,
-    #     'xy_size': experimental_config.xy_size,
+    #     'xy_grid': experimental_config.xy_grid,
     #     'z_size': experimental_config.z_size,
     #     'brush_name': experimental_config.brush_name,
     #     'image_nums': experimental_config.image_nums,
@@ -166,7 +164,7 @@ if __name__ == '__main__':
     for i in range(1):
         obs = windowed_env.reset()
         fake_path = windowed_env.cur_ref_path
-        fake_actions = refpath_to_actions(fake_path, experimental_config.xy_size, experimental_config.action_shape)
+        fake_actions = refpath_to_actions(fake_path, experimental_config.xy_grid, experimental_config.action_shape)
         fake_actions[:5, -1] = 3
 
         for action in fake_actions:
@@ -174,6 +172,6 @@ if __name__ == '__main__':
             print(info['rewards'])
             if done:
                 break
-        # print(np.stack(windowed_env.history, axis=0))
+        # print(np.stack(env.history, axis=0))
 
         windowed_env.render()

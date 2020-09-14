@@ -5,9 +5,8 @@ from ray.rllib.models.model import restore_original_dimensions
 from ray.rllib.offline import JsonReader
 from tensorflow import keras
 
-from Env.core_config import experimental_config
-from Env.windowed_env import WindowedCnnEnv
-from Model.representation_model import build_AE
+from Data.Deprecated.core_config import experimental_config
+from Data.Deprecated.representation_model import build_AE
 
 
 class OfflineDataGenerator(keras.utils.Sequence):

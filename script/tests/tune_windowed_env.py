@@ -9,7 +9,7 @@ from ray.tune import register_env
 from tqdm import tqdm
 
 # Settings
-from Env.core_config import experimental_config
+from Data.Deprecated.core_config import experimental_config
 from Env.windowed_env import WindowedCnnEnv
 from Model.cnn_model import CnnModel, LayerConfig
 

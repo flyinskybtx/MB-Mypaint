@@ -1,7 +1,8 @@
 import tensorflow as tf
 from tensorflow import keras
 
-from Env.core_config import experimental_config
+from Data.Deprecated.core_config import experimental_config
+
 
 def round_through(x):
     '''Element-wise rounding to the closest integer with full gradient propagation.
@@ -12,7 +13,7 @@ def round_through(x):
 
 
 def build_encoder(config):
-    encoder = keras.Sequential(name='encoder')
+    encoder = keras.Sequential(name='latent_encoder')
     encoder.add(keras.layers.Input(name='encoder_input', shape=(config['image_shape'])))
     for i, (_type, params) in enumerate(config['encoder_layers'], start=1):
         if _type == 'conv':  # N=(W−F+2P)/S+1
@@ -46,7 +47,7 @@ def build_encoder(config):
 
 
 def build_decoder(config):
-    decoder = keras.Sequential(name='decoder')
+    decoder = keras.Sequential(name='latent_decoder')
     decoder.add(keras.layers.Input(name='decoder_input', shape=(config['bottleneck'],)))
 
     for i, (_type, params) in enumerate(config['decoder_layers'], start=len(config['encoder_layers']) + 1):
@@ -69,7 +70,7 @@ def build_decoder(config):
             raise ValueError(f"Layer type is {_type} that is not defined")
         decoder.add(layer)
     decoder.add(keras.layers.Lambda(lambda x: round_through(x), name='bw_output'))
-        
+
     return decoder
 
 
@@ -81,7 +82,7 @@ def build_AE(config):
     keras.utils.plot_model(encoder, show_shapes=True, to_file=f'../Model/{encoder.name}.png')
 
     decoder = build_decoder(config)
-    
+
     decoder.summary()
     keras.utils.plot_model(decoder, show_shapes=True, to_file=f'../Model/{decoder.name}.png')
     outputs = decoder(encoder(inputs))
@@ -91,7 +92,7 @@ def build_AE(config):
 
 
 def build_state_AE(config):
-    # build encoder
+    # build latent_encoder
     cur = keras.layers.Input(name='encoder_cur', shape=(config['bottleneck'],))
     prev = keras.layers.Input(name='encoder_prev', shape=(config['bottleneck'],))
     x = keras.layers.Concatenate(name='latent_concat', axis=-1)([cur, prev])
@@ -103,7 +104,7 @@ def build_state_AE(config):
     encoder = keras.models.Model(inputs=[cur, prev], outputs=x, name='state_encoder')
     encoder.summary()
 
-    # build decoder
+    # build latent_decoder
     decoder = keras.models.Sequential(name='state_decoder')
     decoder.add(keras.layers.Input(name='state', shape=(config['state_dim'],)))
     for i, (_type, params) in enumerate(config['encoder_layers'], start=1):
@@ -158,10 +159,10 @@ if __name__ == '__main__':
         'state_dim': 7,
     }
 
-    # encoder = build_encoder(config)
-    # encoder.summary()
+    # latent_encoder = build_encoder(cfg)
+    # latent_encoder.summary()
     # 
-    # decoder = build_decoder(config)
-    # decoder.summary()
+    # latent_decoder = build_decoder(cfg)
+    # latent_decoder.summary()
     build_AE(config)
     build_state_AE(state_AE_config)

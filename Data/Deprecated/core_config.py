@@ -9,7 +9,7 @@ ExperimentalConfig = namedtuple(
         'window_size',
         'obs_size',
         'stride_size',
-        'stride_amplify',
+        'stride_amplify',Deprecated
         'xy_size',
         'z_size',
         'num_keypoints',

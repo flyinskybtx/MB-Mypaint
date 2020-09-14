@@ -5,7 +5,7 @@ tf.executing_eagerly = True
 import tensorflow_probability as tfp
 from tensorflow import keras
 
-from Env.core_config import experimental_config
+from Data.Deprecated.core_config import experimental_config
 from Model.cnn_model import build_block, LayerConfig
 
 config = {
@@ -39,9 +39,9 @@ def build_cnp_model(config):
                                    shape=(None, config['state_dims']))
     query_x = keras.layers.Input(name='query_x', shape=(config['state_dims'] + config['action_dims'],))
 
-    # ------------------ encoder --------------------- #
+    # ------------------ latent_encoder --------------------- #
     x = keras.layers.Concatenate(name='context_concat', axis=-1)([context_x, context_y])
-    for i, ec in enumerate(config['encoder'], start=1):
+    for i, ec in enumerate(config['latent_encoder'], start=1):
         block = build_block(ec, i)
         for layer in block:
             x = layer(x)
@@ -51,9 +51,9 @@ def build_cnp_model(config):
     aggregates = keras.layers.Lambda(lambda logit: tf.reduce_mean(logit, axis=1, keepdims=False),
                                      name='avg_aggregates')(encodes)
 
-    # ------------------ decoder ------------------ #
+    # ------------------ latent_decoder ------------------ #
     x = keras.layers.Concatenate(name='query_concat', axis=-1)([aggregates, query_x])
-    for i, ec in enumerate(config['decoder'], start=len(config['encoder']) + 1):
+    for i, ec in enumerate(config['latent_decoder'], start=len(config['latent_encoder']) + 1):
         block = build_block(ec, i)
         for layer in block:
             x = layer(x)
@@ -79,8 +79,8 @@ def test_cnp_train():
         'state_dims': 5,
         'action_dims': 2,
         'logits_dims': 8,
-        'encoder': {LayerConfig(fc=8, activation='relu')},
-        'decoder': {LayerConfig(fc=8, activation='relu')},
+        'latent_encoder': {LayerConfig(fc=8, activation='relu')},
+        'latent_decoder': {LayerConfig(fc=8, activation='relu')},
     }
 
     cnp_model = build_cnp_model(config)

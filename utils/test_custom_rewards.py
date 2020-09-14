@@ -1,7 +1,7 @@
 # Rewards:
 
 from Data.data_process_lib import refpath_to_actions
-from Env.core_config import experimental_config
+from Data.Deprecated.core_config import experimental_config
 from Env.windowed_env import WindowedCnnEnv
 from utils.custom_rewards import *
 
@@ -10,7 +10,7 @@ def test_ref_rewards():
     env_config = {
         'image_size': experimental_config.image_size,
         'window_size': experimental_config.window_size,
-        'xy_size': experimental_config.xy_size,
+        'xy_grid': experimental_config.xy_grid,
         'z_size': experimental_config.z_size,
         'brush_name': experimental_config.brush_name,
         'image_nums': experimental_config.image_nums,
@@ -27,7 +27,7 @@ def test_ref_rewards():
 
     reference_path = env.cur_ref_path
     actions = refpath_to_actions(reference_path,
-                                 step_size=experimental_config.obs_size,
+                                 xy_size=experimental_config.obs_size,
                                  action_shape=experimental_config.action_shape)
 
     for action in actions:
@@ -56,7 +56,7 @@ def test_random_rewards():
     env_config = {
         'image_size': experimental_config.image_size,
         'window_size': experimental_config.window_size,
-        'xy_size': experimental_config.xy_size,
+        'xy_grid': experimental_config.xy_grid,
         'z_size': experimental_config.z_size,
         'brush_name': experimental_config.brush_name,
         'image_nums': experimental_config.image_nums,

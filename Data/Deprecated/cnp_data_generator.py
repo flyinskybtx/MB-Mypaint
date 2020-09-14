@@ -7,7 +7,7 @@ import tensorflow.keras as keras
 
 from Data.Deprecated.gen_data import gen_samples
 from Data.Deprecated.load_HWDB import interpolate_stroke
-from utils.mypaint_agent import MypaintAgent
+from utils.mypaint_agent import MypaintPainter
 
 HWDB_DIR = Path(__file__).parent / 'pot'
 
@@ -20,7 +20,7 @@ class CnpDataGenerator(keras.utils.Sequence):
         self.roi_size = roi_size
         self.cur_author = None
         self.strokes = None
-        self.agent = MypaintAgent({'brush_name': 'custom/slow_ink'})
+        self.agent = MypaintPainter({'brush_name': 'custom/slow_ink'})
 
         self.update_samples()
 

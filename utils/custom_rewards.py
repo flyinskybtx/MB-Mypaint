@@ -18,7 +18,7 @@ def img_mse_loss(tar, obs):
 
 
 def scale_loss(tar, obs):
-    if np.sum(obs) == 0:  # If observation is empty img, reward 0
+    if np.sum(obs) == 0:  # If observation is empty img, accu_reward 0
         return -1
     else:
         tar_h, tar_w = map(lambda x: np.max(x) - np.min(x), np.where(tar > 0))
@@ -57,7 +57,7 @@ def curvature_loss(ref_path, cur_path):
 
 
 def incremental_reward(tar, delta):
-    """ reward on new pixels on target """
+    """ accu_reward on new pixels on target """
     return np.count_nonzero(delta + tar == 2) / np.multiply(*tar.shape)
 
 
@@ -76,3 +76,15 @@ rewards_dict = {
     'incremental_loss': incremental_loss,
 }
 
+
+def traj_reward_fn(images, target):
+    # increnemtal
+    reward = 0
+    for img0, img1 in zip(images, images[1:]):
+        delta = img1 - img0
+        instant_reward = incremental_reward(target, delta) - incremental_loss(target, delta)
+        reward += instant_reward
+    # final
+    final_reward = img_cosine_reward(target, images[-1])
+    reward += final_reward
+    return reward
