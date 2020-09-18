@@ -119,12 +119,14 @@ class MainEnv(gym.Env):
         return obs, reward, done, {'history': self.history,
                                    'rewards': rewards, }
 
-    def reset(self):
+    def reset(self, **kwargs):
         """
         obs: cur, prev, tar, z
         :return:
         """
-        image_num = np.random.randint(low=0, high=self.config.num_images - 1)
+        image_num = kwargs.setdefault('image_num', None)
+        if image_num is None:
+            image_num = np.random.randint(low=0, high=self.config.num_images - 1)
         # print(f'Image No.{image_num}\n')
         self.target_image = self.images[image_num]
         self.cur_ref_path = self.ref_paths[image_num]

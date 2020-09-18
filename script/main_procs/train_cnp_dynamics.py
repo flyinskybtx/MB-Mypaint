@@ -1,6 +1,7 @@
 from Data.cnp_data import CNPGenerator
 from Model.basics import LayerConfig
-from Model.dynamics_model import ActionEmbedder, CNPModel
+from Model.dynamics_model import CNPModel
+from Model.action_embedder import ActionEmbedder
 from Model.repr_model import ReprModel
 from script.main_procs.hparams import define_hparams
 
@@ -16,18 +17,18 @@ if __name__ == '__main__':
     # --- build cnp
     cfg.dynamics_layers = {
         'encoder': [
-            LayerConfig(type='dense', units=128, activation='tanh'),
+            LayerConfig(type='dense', units=256, activation='tanh'),
             LayerConfig(type='dropout', rate=0.2),
-            LayerConfig(type='dense', units=128, activation='tanh'),
+            LayerConfig(type='dense', units=256, activation='tanh'),
             LayerConfig(type='dropout', rate=0.2),
-            LayerConfig(type='dense', units=128, activation='tanh'),
+            LayerConfig(type='dense', units=256, activation='tanh'),
             LayerConfig(type='dropout', rate=0.2),
             LayerConfig(type='dense', units=128, activation='linear'),
         ],
         'decoder': [
-            LayerConfig(type='dense', units=128, activation='tanh'),
+            LayerConfig(type='dense', units=256, activation='tanh'),
             LayerConfig(type='dropout', rate=0.2),
-            LayerConfig(type='dense', units=128, activation='tanh'),
+            LayerConfig(type='dense', units=256, activation='tanh'),
             LayerConfig(type='dropout', rate=0.2),
         ]
     }
@@ -50,5 +51,7 @@ if __name__ == '__main__':
                              train=False)
 
     # --- train cnp
+    # Load old
+    dynamics_model.load_model()
     dynamics_model.train_model(train_data, vali_data)
     dynamics_model.save_model()

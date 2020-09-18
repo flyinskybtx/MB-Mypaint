@@ -5,6 +5,7 @@ import tensorflow as tf
 import tensorflow_probability as tfp
 from tensorflow import keras
 
+from Data.cnp_data import CNPGenerator
 from Model import AttrDict, MODEL_DIR
 from Model.basics import make_layer
 
@@ -28,18 +29,20 @@ def stats(y_true, y_pred):
     return tf.reduce_mean(y_pred, keepdims=False) - tf.reduce_mean(y_true, keepdims=False)
 
 
-class ActionEmbedder:
-    def __init__(self, config):
-        self.action_shape = config.action_shape
-
-    def _embedding(self, action):
-        embedding = np.zeros(3 * self.action_shape)
-        for i, act in enumerate(action):
-            embedding[i * self.action_shape + int(act)] = 1
-        return embedding
-
-    def transform(self, actions):
-        return np.stack(self._embedding(action) for action in actions)
+def make_train_data(config, repr_model, embedder):
+    train_data = CNPGenerator(repr_model=repr_model,
+                              action_embed=embedder,
+                              savedir='offline/random',
+                              batch_size=config.dynamics_batchsize,
+                              num_context=config.num_context,
+                              train=True)
+    vali_data = CNPGenerator(repr_model=repr_model,  # Must not use copy
+                             action_embed=embedder,
+                             savedir='offline/random',
+                             batch_size=config.dynamics_batchsize,
+                             num_context=config.num_context,
+                             train=False)
+    return train_data, vali_data
 
 
 class CNPModel:

@@ -2,7 +2,7 @@ import numpy as np
 
 from Data.data_process_lib import refpath_to_actions
 from Env.main_env import MainEnv
-from Model.dynamics_model import ActionEmbedder
+from Model.action_embedder import ActionEmbedder
 from Model.repr_model import ReprModel
 from script.main_procs.hparams import define_hparams
 

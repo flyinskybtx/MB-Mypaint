@@ -9,7 +9,7 @@ from script.main_procs.hparams import define_hparams
 
 
 def sample_env_configs(num_configs, resample=False):
-    """ Sample brush configs for each env cfg
+    """ Sample brush configs for each env config
     :param num_configs
     :param resample (default=False)
     :return configs

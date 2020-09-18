@@ -1,9 +1,12 @@
 import copy
 
+import matplotlib.pyplot as plt
 import numpy as np
+import scipy
 
 from Env.main_env import Canvas
-from Model.dynamics_model import ActionEmbedder, CNPModel
+from Model.action_embedder import ActionEmbedder
+from Model.dynamics_model import CNPModel
 from Model.repr_model import ReprModel
 from utils.custom_rewards import traj_reward_fn
 
@@ -38,6 +41,8 @@ def cem_optimize(init_mean, reward_func, init_variance=1., samples=20, precision
 
     step = 1
     diff = 999999
+    best_traj = None
+    best_reward = None
 
     while diff > precision and step < steps:
         # candidates: (horizon, samples, action_dim)
@@ -104,9 +109,11 @@ class BaseMPCController:
         states = np.repeat(np.expand_dims(self.state, axis=0), num_samples, axis=0)  # shape (num_samples, state_dims)
         latents = self.repr_model.latent_encode(states)
         latents_history = self._calculate_latents(latents, trajs)
-        images_histroy = self._calculate_images(latents_history, trajs)
+        images_history = self._calculate_images(latents_history, trajs)
 
-        rewards = [self.reward_fn(images) for images in images_histroy]
+        self.images_history = copy.deepcopy(images_history)
+
+        rewards = [self.reward_fn(images) for images in images_history]
         return np.array(rewards)
 
     def _calculate_latents(self, latents, trajs):
@@ -157,6 +164,26 @@ class BaseMPCController:
         self.canvas = canvas
         self.xy = np.array(xy)
 
+    def _display_prediction(self, traj, image):
+        x, y = self.xy
+        z = self.z
+        action_disp = self.config.action_shape // 2
+        xy_grid = self.config.xy_grid
+        z_grid = self.config.z_grid
+        waypoints_frame = np.zeros_like(self.canvas.frame)
+
+        for action in traj:
+            x += (action[0] - action_disp) * xy_grid / action_disp
+            y += (action[1] - action_disp) * xy_grid / action_disp
+            z += (action[2] - action_disp) * z_grid / action_disp
+            z = np.clip(z, 0, 1)
+
+            waypoints_frame[int(x), int(y)] = float(z)
+        conv_kernel = np.ones(shape=(5, 5))
+        waypoints_frame = scipy.ndimage.convolve(waypoints_frame, conv_kernel, mode='constant', cval=0.0)
+
+        return np.stack([image, self.canvas.frame, waypoints_frame], axis=-1)
+
 
 class ShootingMPCController(BaseMPCController):
     def __init__(self, config, action_space,
@@ -183,15 +210,20 @@ class ShootingMPCController(BaseMPCController):
         trajs = np.stack(trajs, axis=0)
 
         rewards = self._expected_reward(trajs)
-        print(rewards)  # todo
         sorted_idx = np.argsort(rewards)[::-1]  # descending
-        best_reward = rewards[sorted_idx[0]]
-        print(best_reward)  # todo
-        best_traj = trajs[:, sorted_idx[0], :]
-        print(best_traj)  # todo
+        best_idx = sorted_idx[0]
+        best_traj = trajs[:, best_idx, :]
 
         if print_expectation:
-            print('Reward expectation: ', best_reward)
+            print('Best rewards:', rewards[sorted_idx])  # todo
+            print('Best trajectory:', best_traj)
+            best_image = self.images_history[best_idx][-1]
+            result_image = self._display_prediction(best_traj, best_image)
+
+            plt.imshow(result_image)
+            plt.suptitle(f'MPC expected result, reward={rewards[sorted_idx[0]]}')
+            plt.show()
+
         return best_traj[0]
 
 

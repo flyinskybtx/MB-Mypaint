@@ -1,7 +1,7 @@
 import numpy as np
 
 from Data.data_utils import BaseData
-from Model.dynamics_model import ActionEmbedder
+from Model.action_embedder import ActionEmbedder
 from Model.repr_model import ReprModel
 from script.main_procs.hparams import define_hparams
 

@@ -159,10 +159,10 @@ if __name__ == '__main__':
         'state_dim': 7,
     }
 
-    # latent_encoder = build_encoder(cfg)
+    # latent_encoder = build_encoder(config)
     # latent_encoder.summary()
     # 
-    # latent_decoder = build_decoder(cfg)
+    # latent_decoder = build_decoder(config)
     # latent_decoder.summary()
     build_AE(config)
     build_state_AE(state_AE_config)

@@ -212,5 +212,7 @@ class ReprModel:
         return self.latent_encoder.predict(delta)
 
     def latent_decode(self, latent):
+        if len(latent.shape) == 1:
+            latent = np.expand_dims(latent, axis=0)
         delta = self.latent_decoder.predict(latent)
         return delta

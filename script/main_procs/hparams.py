@@ -37,6 +37,7 @@ def define_hparams():
     # Repr learning
     config.train_latent_encoder = False
     config.train_decoder = False
+    config.evalute_repr = False
     config.latent_size = 7
     config.encoder_layers = [
         LayerConfig(type='conv', filters=32, kernel_size=(2, 2), strids=1),
@@ -70,19 +71,24 @@ def define_hparams():
     # Dynamics
     config.dynamics_layers = {
         'encoder': [
-            LayerConfig(type='dense', units=128, activation='tanh'),
+            LayerConfig(type='dense', units=256, activation='tanh'),
             LayerConfig(type='dropout', rate=0.2),
-            LayerConfig(type='dense', units=128, activation='tanh'),
+            LayerConfig(type='dense', units=256, activation='tanh'),
             LayerConfig(type='dropout', rate=0.2),
-            LayerConfig(type='dense', units=128, activation='tanh'),
+            LayerConfig(type='dense', units=256, activation='tanh'),
             LayerConfig(type='dropout', rate=0.2),
             LayerConfig(type='dense', units=128, activation='linear'),
         ],
         'decoder': [
-            LayerConfig(type='dense', units=128, activation='tanh'),
+            LayerConfig(type='dense', units=256, activation='tanh'),
             LayerConfig(type='dropout', rate=0.2),
-            LayerConfig(type='dense', units=128, activation='tanh'),
+            LayerConfig(type='dense', units=256, activation='tanh'),
             LayerConfig(type='dropout', rate=0.2),
         ]
     }
+    config.train_dynamics = False
+    config.evaluate_dynamics = False
+    config.dynamics_batchsize = 32
+    config.num_context = (15, 20)
+
     return config

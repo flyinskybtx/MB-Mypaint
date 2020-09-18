@@ -1,7 +1,17 @@
+from warnings import simplefilter
+simplefilter(action='ignore', category=FutureWarning)
+
+import random
+
+from Model.dynamics_model import CNPModel, make_train_data
+from Model.action_embedder import ActionEmbedder
 from Model.repr_model import ReprModel
 from script.main_procs.collect_policy_data import collect_sim_data
+from script.main_procs.evaluate_auto_encoder import evaluate_repr
+from script.main_procs.evaluate_cnp_dynamics import evaluate_dynamics
 from script.main_procs.hparams import define_hparams
 from script.main_procs.make_simulation_environments import sample_env_configs
+from script.main_procs.sample_context import gen_context
 
 if __name__ == '__main__':
     # 0. ---------- SETTINGS ----------
@@ -18,12 +28,29 @@ if __name__ == '__main__':
 
     #   1.1 ---------- TRAIN Auto-Encoder for image representation  ----------
     repr_model = ReprModel(cfg)
+    embedder = ActionEmbedder(cfg)
 
     #   1.2 ---------- TRAIN CNP-dynamics for image prediction  ----------
+    dynamics = CNPModel(cfg)
+    if cfg.train_dynamics:
+        dynamics.set_repr(repr_model, embedder)
+        train_data, vali_data = make_train_data(cfg, repr_model, embedder)
+        dynamics.train_model(train_data, vali_data)
+        dynamics.save_model()
+    else:
+        dynamics.load_model()
 
     #   1.3 ---------- Evaluate Auto-Encoder  ----------
-    #   1.4 ---------- Evaluate CNP dynamics  ----------
+    if cfg.evaluate_repr:
+        evaluate_repr(cfg, repr_model)
     #   1.5 ---------- Sample Context Points for dynamics  ----------
+    context_x, context_y = gen_context(cfg, repr_model, embedder, num_context_points=random.randint(*cfg.num_context))
+
+    #   1.4 ---------- Evaluate CNP dynamics  ----------
+    if cfg.evaluate_dynamics:
+        evaluate_dynamics(cfg, dynamics, repr_model, embedder, hijack=5)
+
+
     # 2. ---------- Create MPC Controller  ----------
     #   2.0 ---------- Define Trajectory Loss and Create MPC Controller  ----------
     #   2.1 ---------- Evaluate MPC Controller  ----------
