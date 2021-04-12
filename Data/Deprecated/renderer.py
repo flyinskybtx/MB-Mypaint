@@ -1,6 +1,6 @@
 # 渲染器模型
-# 输入： 移动量x, y, theta 当前量图片 p
-# 输出： 效果量 p 或 效果增量 delta
+# 输入： 移动量x, ys, theta 当前量图片 p
+# 输出： 效果量 p 或 效果增量 deltas
 import tensorflow.keras as keras
 
 

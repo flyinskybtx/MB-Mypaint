@@ -2,7 +2,7 @@ import numpy as np
 from tensorflow import keras
 
 from Data.Deprecated.core_config import experimental_config
-from Model.cnn_model import LayerConfig
+from Data.Deprecated.cnn_model import LayerConfig
 from Data.Deprecated.old_cnp_model import build_cnp_model, dist_logp, stats, dist_mse
 from script.tests.train_image_autoencoder import OfflineDataGenerator
 
@@ -69,7 +69,7 @@ if __name__ == '__main__':
     train_data_generator = CNPDataGenerator(generator_config)
     vali_data_generator = CNPDataGenerator(generator_config)
 
-    # ---- build cnp model for latent states ---- #
+    # ---- build mlp model for latent states ---- #
     config = {
         'state_dims': 7,
         'action_dims': 3,

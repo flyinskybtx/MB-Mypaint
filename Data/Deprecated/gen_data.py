@@ -6,7 +6,7 @@ import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 
-from Data.Deprecated.load_HWDB import interpolate_stroke
+from Data.HWDB.load_HWDB import interpolate_stroke
 from utils.mypaint_agent import MypaintPainter
 
 HWDB_DIR = Path(__file__).parent / 'pot'
@@ -124,8 +124,8 @@ if __name__ == '__main__':
             for s in samples:
                 print(s[:3])
                 frame = np.zeros((2 * ROI_SIZE + 1, 2 * ROI_SIZE + 1, 3))
-                # frame[:, :, 0:1] = s[3]
-                # plt.imshow(frame)
+                # frames[:, :, 0:1] = s[3]
+                # plt.imshow(frames)
                 # plt.show()
                 frame[:, :, 1:2] = s[4]
                 plt.imshow(frame)

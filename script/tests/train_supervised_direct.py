@@ -4,9 +4,9 @@ from ray.rllib.offline import JsonReader
 from tensorflow import keras
 
 from Data.Deprecated.core_config import experimental_config
-from Env.direct_env import DirectCnnEnv
-from Model.cnn_model import LayerConfig
-from Model.supervised_cnn_model import SupervisedCnnModel
+from Env.direct_env import DirectEnv
+from Data.Deprecated.cnn_model import LayerConfig
+from Data.Deprecated.supervised_cnn_model import SupervisedCnnModel
 from script.tests.train_supervised_windowed import DataGenerator
 
 
@@ -36,11 +36,11 @@ if __name__ == '__main__':
         'stride_amplify': experimental_config.stride_amplify,
         'z_size': experimental_config.z_size,
         'brush_name': experimental_config.brush_name,
-        'num_keypoints': experimental_config.num_keypoints,
+        'num_waypoints': experimental_config.num_waypoints,
         'image_nums': experimental_config.image_nums,
     }
 
-    env = DirectCnnEnv(env_config)
+    env = DirectEnv(env_config)
     obs = env.reset()
     observation_space = env.observation_space
     action_space = env.action_space

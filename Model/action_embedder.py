@@ -1,15 +1,18 @@
-import numpy as np
+from tensorflow import keras
+
+from Model.custom_layers import ActionEmbedLayer
 
 
-class ActionEmbedder:
-    def __init__(self, config):
+class ActionEmbedder(keras.Model):
+    def get_config(self):
+        pass
+
+    def __init__(self, config, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.action_shape = config.action_shape
+        self.embedder = ActionEmbedLayer(config)
 
-    def _embedding(self, action):
-        embedding = np.zeros(3 * self.action_shape)
-        for i, act in enumerate(action):
-            embedding[i * self.action_shape + int(act)] = 1
-        return embedding
+    def call(self, inputs, **kwargs):
+        return self.embedder(inputs)
 
-    def transform(self, actions):
-        return np.stack(self._embedding(action) for action in actions)
+

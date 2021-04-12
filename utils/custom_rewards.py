@@ -1,6 +1,7 @@
 # Rewards:
 import numpy as np
 from fastdtw import fastdtw
+from skimage.filters import threshold_otsu
 from skimage.metrics import mean_squared_error
 from sklearn import metrics
 
@@ -14,7 +15,9 @@ def img_cosine_reward(tar, obs):
 
 
 def img_mse_loss(tar, obs):
-    return - mean_squared_error(tar, obs)
+    # tar[np.where(tar > 0)] = 1.0
+    # obs[np.where(obs > 0)] = 1.0
+    return - np.mean(np.square(tar - obs))
 
 
 def scale_loss(tar, obs):
@@ -29,6 +32,9 @@ def scale_loss(tar, obs):
 
 def iou_reward(tar, obs):
     """ iou between image patterns, all images must be BW-image """
+    tar[np.where(tar > 0)] = 1.0
+    obs[np.where(obs > 0)] = 1.0
+
     value = np.count_nonzero(tar + obs == 2) / np.count_nonzero(tar + obs > 0)
     return value
 

@@ -5,7 +5,7 @@ from tqdm import tqdm
 
 from Data.data_process_lib import refpath_to_actions
 from Data.Deprecated.core_config import *
-from Env.windowed_env import WindowedCnnEnv
+from Data.Deprecated.windowed_env import WindowedCnnEnv
 
 if __name__ == '__main__':
     env_config = {

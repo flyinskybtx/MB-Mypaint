@@ -5,8 +5,8 @@ from tqdm import tqdm
 
 from Data.data_process_lib import refpath_to_actions
 from Data.Deprecated.core_config import experimental_config
-from Env.windowed_env import WindowedCnnEnv
-from Model.cnn_model import LayerConfig
+from Data.Deprecated.windowed_env import WindowedCnnEnv
+from Data.Deprecated.cnn_model import LayerConfig
 from Data.Deprecated.old_cnp_model import build_cnp_model
 from script.tests.train_cnp_dynamics import CNPDataGenerator
 
@@ -52,7 +52,7 @@ if __name__ == '__main__':
     # ---------- Evaluate for N num_episodes ------------- #
     for i in tqdm(range(10)):
         # ---------- get ref waypoints ------------ #
-        obs = env.reset()  # obs = [cur, prev, tar, z]
+        obs = env.reset()  # obs = [cur, prev, tar, zs]
         cur_cnp, prev_cnp, tar, z = map(lambda x: np.squeeze(x, axis=-1), np.split(obs, 4, axis=-1))
         reference_path = env.cur_ref_path
         actions = refpath_to_actions(reference_path,
@@ -66,7 +66,7 @@ if __name__ == '__main__':
         for action in actions:
             if done:
                 break
-            # ---------- cnp rollout ---------- #
+            # ---------- mlp rollout ---------- #
             cnp_obs = np.stack([cur_cnp, prev_cnp, tar, z], axis=-1)
             latent = encoder.predict(np.expand_dims(cnp_obs, axis=0))
             query_x = np.concatenate([latent, np.expand_dims(action, axis=0)], axis=-1)
@@ -84,7 +84,7 @@ if __name__ == '__main__':
             cur_cnp, prev_cnp = img_pred, cur_cnp  # update cur & prev
             # ---------- environmental rollout ---------- #
             obs, rew, done, info = env.step(action)
-            img_true, _, tar, z = map(lambda x: np.squeeze(x, axis=-1), np.split(obs, 4, axis=-1))  # update tar & z
+            img_true, _, tar, z = map(lambda x: np.squeeze(x, axis=-1), np.split(obs, 4, axis=-1))  # update tar & zs
             t += 1
 
             # ---------- compare GT with CNP output ----------- #
@@ -92,7 +92,7 @@ if __name__ == '__main__':
             plt.title(f'{i}-({t})')
             plt.show()
 
-            # TODO: place img into frame
+            # TODO: place img into frames
 
             # TODO: horizon tests
 

@@ -9,17 +9,17 @@ ExperimentalConfig = namedtuple(
         'window_size',
         'obs_size',
         'stride_size',
-        'stride_amplify',Deprecated
+        'stride_amplify',
         'xy_size',
         'z_size',
-        'num_keypoints',
+        'num_waypoints',
         'max_step',
         'brush_name',
         'action_shape',
         'image_nums',
         'bottleneck',
         'state_dim',
-        'rewards',
+        'reward_names',
     ]
 )
 

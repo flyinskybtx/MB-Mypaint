@@ -10,9 +10,9 @@ from tqdm import tqdm
 
 from Data.Deprecated.core_config import *
 # Settings
-from Env.windowed_env import WindowedCnnEnv
-from Model.cnn_model import LayerConfig
-from Model.windowd_cnn_model import WindowedCnnModel
+from Data.Deprecated.windowed_env import WindowedCnnEnv
+from Data.Deprecated.cnn_model import LayerConfig
+from Data.Deprecated.windowd_cnn_model import WindowedCnnModel
 
 if __name__ == '__main__':
     random.seed(0)
@@ -30,7 +30,7 @@ if __name__ == '__main__':
         'log_level': 'INFO',
         'framework': 'tf',
         #  -------------------------------------
-        'env_config': {
+        'brush_config': {
             'image_size': experimental_config.image_size,
             'window_size': experimental_config.window_size,
             'z_size': experimental_config.z_size,

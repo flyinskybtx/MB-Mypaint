@@ -10,8 +10,8 @@ from tqdm import tqdm
 
 # Settings
 from Data.Deprecated.core_config import experimental_config
-from Env.windowed_env import WindowedCnnEnv
-from Model.cnn_model import CnnModel, LayerConfig
+from Data.Deprecated.windowed_env import WindowedCnnEnv
+from Data.Deprecated.cnn_model import CnnModel, LayerConfig
 
 if __name__ == '__main__':
     random.seed(0)
@@ -29,7 +29,7 @@ if __name__ == '__main__':
         'log_level': 'INFO',
         'framework': 'tf',
         #  -------------------------------------
-        'env_config': experimental_config._asdict(),
+        'brush_config': experimental_config._asdict(),
         #  -------------------------------------
         'model': {
             'custom_model': model_name,

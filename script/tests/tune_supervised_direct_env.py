@@ -10,9 +10,9 @@ from tqdm import tqdm
 
 from Data.Deprecated.core_config import experimental_config
 # Settings
-from Env.direct_env import DirectCnnEnv
-from Model.cnn_model import LayerConfig
-from Model.supervised_cnn_model import SupervisedCnnModel
+from Env.direct_env import DirectEnv
+from Data.Deprecated.cnn_model import LayerConfig
+from Data.Deprecated.supervised_cnn_model import SupervisedCnnModel
 
 if __name__ == '__main__':
     import_supervised_model = 'supervised_direct_model'
@@ -24,7 +24,7 @@ if __name__ == '__main__':
 
     model_name = ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
     ModelCatalog.register_custom_model(model_name, SupervisedCnnModel)
-    register_env('DirectCnnEnv-v0', lambda env_config: DirectCnnEnv(env_config))
+    register_env('DirectEnv-v0', lambda env_config: DirectEnv(env_config))
 
     config = {
         'num_workers': 0,
@@ -32,13 +32,13 @@ if __name__ == '__main__':
         'log_level': 'INFO',
         'framework': 'tf',
         # ----------------------------------------------
-        'env_config': {
+        'brush_config': {
             'image_size': experimental_config.image_size,
             'stride_size': experimental_config.stride_size,
             'stride_amplify': experimental_config.stride_amplify,
             'z_size': experimental_config.z_size,
             'brush_name': experimental_config.brush_name,
-            'num_keypoints': experimental_config.num_keypoints,
+            'num_waypoints': experimental_config.num_waypoints,
             'image_nums': experimental_config.image_nums,
         },
         # ----------------------------------------------
@@ -62,8 +62,8 @@ if __name__ == '__main__':
         # ----------------------------------------------
 
     }
-    a2c_trainer = a3c.A2CTrainer(config=config, env='DirectCnnEnv-v0')
-    print('Created A2C Trainer for DirectCnnEnv-v0')
+    a2c_trainer = a3c.A2CTrainer(config=config, env='DirectEnv-v0')
+    print('Created A2C Trainer for DirectEnv-v0')
 
     if import_supervised_model:
         a2c_trainer.import_model(f'../Model/checkpoints/{import_supervised_model}.h5')
@@ -80,4 +80,4 @@ if __name__ == '__main__':
             checkpoint = a2c_trainer.save()
             print("checkpoint saved at", checkpoint)
         if i % 50 == 0:
-            rollout.rollout(a2c_trainer, env_name='DirectCnnEnv-v0', num_steps=1, no_render=False)
+            rollout.rollout(a2c_trainer, env_name='DirectEnv-v0', num_steps=1, no_render=False)

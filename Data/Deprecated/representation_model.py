@@ -69,7 +69,7 @@ def build_decoder(config):
         else:
             raise ValueError(f"Layer type is {_type} that is not defined")
         decoder.add(layer)
-    decoder.add(keras.layers.Lambda(lambda x: round_through(x), name='bw_output'))
+    decoder.add(keras.layers.Lambda(lambda x: round_through(x), name='binary_output'))
 
     return decoder
 

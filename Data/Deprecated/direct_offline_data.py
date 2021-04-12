@@ -6,7 +6,7 @@ import os
 
 from Data.data_process_lib import extract_skeleton_trace, get_supervised_wps_from_track
 from Data.Deprecated.core_config import experimental_config
-from Env.direct_env import DirectCnnEnv
+from Env.direct_env import DirectEnv
 
 env_config = {
     'image_size': experimental_config.image_size,
@@ -14,7 +14,7 @@ env_config = {
     'stride_amplify': experimental_config.stride_amplify,
     'z_size': experimental_config.z_size,
     'brush_name': experimental_config.brush_name,
-    'num_keypoints': experimental_config.num_keypoints,
+    'num_waypoints': experimental_config.num_waypoints,
     'image_nums': experimental_config.image_nums,
 }
 
@@ -26,7 +26,7 @@ if __name__ == '__main__':
         os.makedirs(save_dir, exist_ok=True)
     writer = JsonWriter(save_dir)
 
-    env = DirectCnnEnv(env_config)
+    env = DirectEnv(env_config)
     prep = get_preprocessor(env.observation_space)(env.observation_space)
 
     for eps_id in tqdm(range(1000)):
@@ -34,7 +34,7 @@ if __name__ == '__main__':
         t = 0
 
         reference_path = extract_skeleton_trace(env.target_image, experimental_config.stride_size, discrete=True)
-        action = get_supervised_wps_from_track(reference_path, experimental_config.num_keypoints).reshape(-1)
+        action = get_supervised_wps_from_track(reference_path, experimental_config.num_waypoints).reshape(-1)
 
         new_obs, rew, done, info = env.step(action.reshape(-1))
 
@@ -44,7 +44,7 @@ if __name__ == '__main__':
             agent_index=0,
             obs=prep.transform(obs),
             actions=action,
-            action_prob=1.0,  # put the true action probability here
+            action_prob=1.0,  # put the true actions probability here
             rewards=rew,
             dones=done,
             infos={},

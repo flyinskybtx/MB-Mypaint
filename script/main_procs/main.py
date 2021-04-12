@@ -3,15 +3,15 @@ simplefilter(action='ignore', category=FutureWarning)
 
 import random
 
-from Model.dynamics_model import CNPModel, make_train_data
+from Data.Deprecated.dynamics_model import CNPModel, make_train_data
 from Model.action_embedder import ActionEmbedder
-from Model.repr_model import ReprModel
-from script.main_procs.collect_policy_data import collect_sim_data
-from script.main_procs.evaluate_auto_encoder import evaluate_repr
-from script.main_procs.evaluate_cnp_dynamics import evaluate_dynamics
+from Data.Deprecated.repr_model import ReprModel
+from Data.Deprecated.collect_policy_data import collect_sim_data
+from Data.Deprecated.evaluate_auto_encoder import evaluate_repr
+from Data.Deprecated.evaluate_cnp_dynamics import evaluate_dynamics
 from script.main_procs.hparams import define_hparams
-from script.main_procs.make_simulation_environments import sample_env_configs
-from script.main_procs.sample_context import gen_context
+from Data.Deprecated.make_simulation_environments import sample_env_configs
+from Data.Deprecated.sample_context import gen_context
 
 if __name__ == '__main__':
     # 0. ---------- SETTINGS ----------
@@ -41,7 +41,7 @@ if __name__ == '__main__':
         dynamics.load_model()
 
     #   1.3 ---------- Evaluate Auto-Encoder  ----------
-    if cfg.evaluate_repr:
+    if cfg.evaluate_vae:
         evaluate_repr(cfg, repr_model)
     #   1.5 ---------- Sample Context Points for dynamics  ----------
     context_x, context_y = gen_context(cfg, repr_model, embedder, num_context_points=random.randint(*cfg.num_context))

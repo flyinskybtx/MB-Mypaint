@@ -62,7 +62,7 @@ class VisualiztionCallback(keras.callbacks.Callback):
         count = 0
         for y_pred, y_true in zip(Y_, Y):
             if np.max(y_true) > 0:
-                frame = np.concatenate([y_pred, y_true], axis=1)  # concat along y axis for view
+                frame = np.concatenate([y_pred, y_true], axis=1)  # concat along ys axis for view
                 fig = plt.figure(f'Epoch:{epoch}')
                 plt.imshow(frame)
                 plt.show()

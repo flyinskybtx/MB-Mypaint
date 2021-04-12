@@ -2,7 +2,7 @@
 
 from Data.data_process_lib import refpath_to_actions
 from Data.Deprecated.core_config import experimental_config
-from Env.windowed_env import WindowedCnnEnv
+from Data.Deprecated.windowed_env import WindowedCnnEnv
 from utils.custom_rewards import *
 
 
@@ -38,9 +38,9 @@ def test_ref_rewards():
         cur_img = env.agent.get_img((experimental_config.image_size, experimental_config.image_size))
 
         # ------------------
-        # delta = cur_img - prev_img
-        # print(f'incremental_reward: {incremental_reward(tar_img, delta)}')
-        # print(f'incremental_loss: {incremental_loss(tar_img, delta)}')
+        # deltas = cur_img - prev_img
+        # print(f'incremental_reward: {incremental_reward(tar_img, deltas)}')
+        # print(f'incremental_loss: {incremental_loss(tar_img, deltas)}')
 
     history = env.history
     cur_path = np.array([[x, y] for (x, y, z) in history])

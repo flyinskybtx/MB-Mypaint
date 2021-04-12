@@ -6,7 +6,7 @@ import numpy as np
 import tensorflow.keras as keras
 
 from Data.Deprecated.gen_data import gen_samples
-from Data.Deprecated.load_HWDB import interpolate_stroke
+from Data.HWDB.load_HWDB import interpolate_stroke
 from utils.mypaint_agent import MypaintPainter
 
 HWDB_DIR = Path(__file__).parent / 'pot'

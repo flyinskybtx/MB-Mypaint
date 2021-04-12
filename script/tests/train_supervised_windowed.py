@@ -3,9 +3,9 @@ from ray.rllib.offline import JsonReader
 from tensorflow import keras
 
 from Data.Deprecated.core_config import *
-from Env.windowed_env import WindowedCnnEnv
-from Model.cnn_model import LayerConfig
-from Model.windowd_cnn_model import WindowedCnnModel
+from Data.Deprecated.windowed_env import WindowedCnnEnv
+from Data.Deprecated.cnn_model import LayerConfig
+from Data.Deprecated.windowd_cnn_model import WindowedCnnModel
 
 
 def logits_loss_fn(y_true, y_pred):

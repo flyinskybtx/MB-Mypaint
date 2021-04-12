@@ -1,9 +1,10 @@
 import glob
 import itertools
-import os.path as osp
+import json
 import random
 import struct
 import sys
+from os import path as osp
 
 import cv2
 import matplotlib.pyplot as plt
@@ -12,13 +13,13 @@ from pathfinding.core.diagonal_movement import DiagonalMovement
 from pathfinding.core.grid import Grid
 from pathfinding.finder.a_star import AStarFinder
 from scipy import ndimage
+from skimage import transform
 from skimage.draw import line, line_aa
+from skimage.filters import threshold_otsu
 from skimage.morphology import skeletonize
 
 from Data import DATA_DIR
-from utils.mypaint_agent import MypaintPainter
 
-HWDB_DIR = '/home/baitianxiang/Workspace/MB-Mypaint/Data/pot'
 if not '/home/baitianxiang/Workspace/MB-Mypaint' in sys.path:
     sys.path.extend(['/home/baitianxiang/Workspace/MB-Mypaint'])
 
@@ -31,11 +32,20 @@ def view_all_png():
         plt.show()
 
 
-def load_stroke_png(stroke_num):
+def load_stroke_png(stroke_num, image_size=None):
     filename = osp.join(DATA_DIR, f'png/{stroke_num}.png')
-
     img = plt.imread(filename)[:, :, 0]
+    if image_size is not None:
+        img = transform.resize(img, (image_size, image_size))
+    thresh = threshold_otsu(img)
+    binary = img > thresh
+    img = binary.astype(np.float)
     return img
+
+
+def load_all_stroke_pngs(image_size=None):
+    imgs = {i: load_stroke_png(i, image_size) for i in range(64)}
+    return imgs
 
 
 def preprocess_stroke_png(img, image_size, angle=0):
@@ -132,7 +142,7 @@ def extract_skeleton_trace(img, step_size, discrete=False, display=False):
     #     grid = Grid(matrix=skel.T)
     #     cur_path = finder.find_path(grid.node(*s), grid.node(*e), grid)[0][1:-1]
     #     if len(cur_path) == 0:
-    #         cur_path = [(x, y) for x, y in zip(*line(*s, *e))]  # 用直线插补不连续点
+    #         cur_path = [(xs, ys) for xs, ys in zip(*line(*s, *e))]  # 用直线插补不连续点
     #     path += cur_path
 
     path += [endpoints[-1]] * (step_size + 1)
@@ -192,7 +202,7 @@ def translate_stroke(content):
     """ Unpack a stroke encoding to a list of (X,Y) waypoints"""
 
     points = [content[p:p + 4] for p in range(0, len(content), 4)]
-    # Switch x and y
+    # Switch xs and ys
     return np.array([[struct.unpack('h', p[2:])[0], struct.unpack('h', p[:2])[0]] for p in points])
 
 
@@ -239,7 +249,7 @@ def vis_char(char_strokes, dst_size):
 def get_ellipse(img):
     """
     Get ellipse from incremental image
-    return: y, x, axis_y, axis_x, rotation
+    return: ys, xs, axis_y, axis_x, rotation
     """
     if np.sum(img) > 0:
         ret, thresh = cv2.threshold(img.astype(np.uint8), 0, 1, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
@@ -384,7 +394,7 @@ def get_supervised_wps_from_track(path, num_points):
     :param num_points:
     :return:
     """
-    stride = int(np.ceil(path.shape[0] / (num_points - 1)))
+    stride = int(np.ceil(path.shape[0] / (- 1)))
     supervised_wps = path[::stride]
     while supervised_wps.shape[0] < num_points:  # use last point to complete the path
         supervised_wps = np.concatenate([supervised_wps, path[-1:]], axis=0)
@@ -407,7 +417,7 @@ def cut_roi(target_image, position, roi_size):
 def refpath_to_actions(refpath, xy_size, action_shape):
     """ Reference 2-D path to actions with random Z """
     delta = refpath[1:] - refpath[:-1]
-    actions = np.round(delta / (0.5 * xy_size))
+    actions = np.round(delta / (2. / (action_shape - 1) * xy_size))
     actions += action_shape // 2
     z = np.random.randint(low=0, high=5, size=(actions.shape[0], 1))
     z[:int(0.5 * len(z))] = np.clip(z[:int(0.5 * len(z))] + 1, 0, action_shape - 1)  # let the first half go down and
@@ -419,25 +429,132 @@ def refpath_to_actions(refpath, xy_size, action_shape):
     return actions
 
 
-if __name__ == '__main__':
-    agent = MypaintPainter({'brush_name': 'custom/slow_ink'})
-    roi_size = 16 * 4
-    image_size = 192 * 4
-    cur_author = '1001-c'
+def load_imgs_and_refpaths():
+    with open(osp.join(DATA_DIR, 'png', 'ref_paths.json'), 'r') as fp:
+        json_data = json.load(fp)
+        images = {}
+        ref_paths = {}
+        for k, v in json_data.items():
+            images[int(k)] = np.array(v[0])
+            ref_paths[int(k)] = np.array(v[1])
+    return images, ref_paths
 
-    words = read_pot(cur_author)
-    centralized_words = [centralize_char(word, dst_size=image_size, margin=5) for word in
-                         words.values()]
-    strokes = [s for w in centralized_words for s in w]
-    strokes = [interpolate_stroke(s, roi_size // 2) for s in strokes]
-    print(f'num of strokes:{len(strokes)}')
 
-    trace = stroke_to_trace(strokes[130],
-                            agent,
-                            image_size,
-                            roi_size,
-                            display=False)
-    vis_trace(trace, image_size, roi_size, True)
+def img_to_skeleton_path(img):
+    """
+    由图像求间隔为1的骨架轨迹序列点
+    Args:
+        img:
 
-    samples = trace_to_dxux(trace)
-    print(samples)
+    Returns:
+
+    """
+    endpoints, skel = find_low_resolution_endpoints(img, img.shape[0], return_skel=True)
+    if len(endpoints) > 4:
+        low_size = int(img.shape[0] * 0.8)
+        while low_size > 0.4 * img.shape[0]:
+            low_endpoints = find_low_resolution_endpoints(img, low_size)
+            if 2 <= len(low_endpoints) <= 3:
+                break
+            low_size = int(low_size * 0.8)
+
+        candidates = []
+        for le in low_endpoints:
+            candidates.append(sorted(endpoints, key=lambda x: np.sum(np.square(x - le)))[0])
+
+        endpoints = candidates
+
+    finder = AStarFinder(diagonal_movement=DiagonalMovement.always)
+    paths = []
+
+    if isinstance(endpoints, np.ndarray):
+        endpoints = endpoints.tolist()
+
+    index = 0
+    while len(endpoints) > 1:
+        sp = endpoints.pop(index)
+
+        candidate_paths = []
+        for ep in endpoints:
+            grid = Grid(matrix=skel.T)
+            candidate_paths.append(finder.find_path(grid.node(*sp), grid.node(*ep), grid)[0])
+        distances = np.array([len(p) for p in candidate_paths])
+
+        if np.max(distances) == 0:  # 没有能相连的
+            distances = [(sp[0] - ep[0]) ** 2 + (sp[1] - ep[1]) ** 2 for ep in endpoints]
+            index = int(np.argmin(distances))
+            ep = endpoints[index]
+            cur_path = [(x, y) for x, y in zip(*line(*sp, *ep))]
+            paths.append(cur_path)
+        else:
+            distances[distances == 0] = 10000
+            index = int(np.argmin(distances))
+            paths.append(candidate_paths[index])
+
+    return paths
+
+
+def skeleton_path_to_wps(paths, xy_grid, image_size, discrete=True):
+    action_xy = []
+    wps = []
+
+    cur_point = np.array(paths[0][0])
+
+    wps.append(cur_point)
+
+    for path in paths:
+        for point in path:
+            point = np.array(point)
+            if np.any(np.abs(point - cur_point) >= xy_grid):
+                if discrete:
+                    action = np.round((point - cur_point) / xy_grid, decimals=0)
+                    cur_point = cur_point + action * xy_grid
+                else:
+                    action = (point - cur_point).astype(float) / xy_grid
+                    cur_point = point
+                action_xy.append(action)
+                wps.append(cur_point)
+
+        if discrete:
+            action = np.round((point - cur_point) / xy_grid, decimals=0)
+            cur_point = cur_point + action * xy_grid
+        else:
+            action = (point - cur_point).astype(float) / xy_grid
+            cur_point = point
+        action_xy.append(action)
+        wps.append(cur_point)
+
+    wps = np.array(wps, dtype=int)
+    wps = np.clip(wps, 0, image_size - 1)
+
+    if discrete:
+        action_xy = np.array(action_xy, dtype=int) + np.ones_like(action_xy)
+    else:
+        action_xy = np.array(action_xy)
+
+    return wps, action_xy
+
+
+def get_startpoint_from_img(img):
+    """ Find endpoints in low resolution image, to help choose better endpoints """
+    skel = skeletonize(img)
+    skel = skel.astype(np.float32)
+
+    kernel = np.float32([[1, 1, 1], [1, 10, 1], [1, 1, 1]])
+
+    output = ndimage.convolve(skel, kernel, mode='constant', cval=0.0)
+    rr, cc = np.where(output == 11)
+
+    endpoints = [(x, y) for x, y in zip(rr, cc)]
+    endpoints = sorted(endpoints, key=lambda x: x[0] ** 2 + x[1] ** 2)  # top-left for 1st point
+    return endpoints[0]
+
+
+def sample_actions_z(length, z_grid):
+    z = 0.
+    actions_z = []
+    for _ in range(length):
+        new_z = np.clip(z + np.random.uniform(low=-z_grid, high=z_grid), 0.1, 1)
+        actions_z.append((new_z - z)/z_grid)
+        z = new_z
+    return np.array(actions_z).reshape((length, 1))

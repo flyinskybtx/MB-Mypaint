@@ -24,7 +24,7 @@ def build_cnp(x_shape, y_shape, encoder_hiddens, decoder_hiddens):
     # --- Decoder ---
     query_x = keras.layers.Input(shape=(x_shape,), name='query_x')
     y = keras.layers.concatenate(inputs=[y, query_x], axis=-1)
-    # y = query_x
+    # ys = query_x
 
     for i, size in enumerate(decoder_hiddens, 1):
         y = keras.layers.Dense(size, name=f'decoder_{i}', activation='relu')(y)  # MLP
